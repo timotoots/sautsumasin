@@ -1,7 +1,76 @@
-# sautsumasin
-Säutsumasin
+# Säutsumasin (News Casino)
 
-Näidislingid DIGARis:
+Source code for art installation "Säutsumasin" by Timo Toots.
+
+Just for self documentation.
+
+# Hardware:
+
+1x Raspberry Pi 3  
+1x Wemos D1 Mini  
+1x PIR
+1x Slot machine handle
+1x Flexible LED screen
+1x Epson Thermal Printer
+1x WS81XX RGB LEDs
+32x LED Module 12V white
+
+# Software
+
+## Install packages
+```
+sudo apt install git minicom
+sudo raspi-config
+```
+
+## Install new node.js
+```
+sudo bash  
+curl -sL https://deb.nodesource.com/setup_12.x | bash -  
+sudo apt-get install -y nodejs  
+node -v  
+```
+
+
+## Clone this repository
+```
+sudo apt get install git
+sudo mkdir /opt/sautsumasin
+sudo chown pi:pi /opt/sautsumasin
+cd /opt && git clone https://github.com/timotoots/sautsumasin.git
+```
+
+
+## Install Node packages
+```
+cd /opt/sautsumasin && node server.js
+```
+
+
+## Run the server
+```
+cd /opt/sautsumasin/server && node server.js
+```
+
+
+## Add to rc.local
+```
+su pi -c  '/opt/sautsumasin/startup.sh  &'
+```
+
+## Add to crontab
+```
+sudo crontab -e
+0 4   *   *   *    /sbin/shutdown -r +5
+```
+
+
+# Data
+
+## Estonian Newspapers are collected from Digar database.
+
+
+## Example URLs:
 
 http://data.digar.ee:8080/repox/OAIHandler?verb=ListRecords&set=journal&metadataPrefix=edm
 
