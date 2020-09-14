@@ -138,7 +138,7 @@ gpio.setup(17, gpio.DIR_OUT);
 
 
 setTimeout(openRelay,1000);
-setTimeout(closeRelay,3000);
+// setTimeout(closeRelay,3000);
 
 function shellCmd(cmd){
 
@@ -158,6 +158,17 @@ exec(cmd, (error, stdout, stderr) => {
 
 }
 
+setInterval(function(){
+
+    gpio.read(23,function(channel, value){
+
+    if(value==false){
+        console.log("TRIGGER");
+    }
+
+});
+
+},1000);
 
 
 setInterval(function(){

@@ -46,6 +46,34 @@ cd /opt && git clone https://github.com/timotoots/sautsumasin.git
 cd /opt/sautsumasin && node server.js
 ```
 
+## Install Arduino CLI
+https://arduino.github.io/arduino-cli/latest/installation/
+
+```
+cd /opt/sautsumasin/arduino
+curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/opt/sautsumasin/arduino/ sh
+./arduino-cli --config-file ./arduino-cli.yaml core update-index  
+./arduino-cli --config-file ./arduino-cli.yaml core install esp32:esp32
+./arduino-cli --config-file ./arduino-cli.yaml lib install "FastLED"
+
+```
+
+
+## Compile and upload Arduino code
+```
+
+/opt/sautsumasin/ledstrip_esp32/upload.sh 
+```
+
+## Test Arduino Serial
+```
+minicom -b 115200 -o -D /dev/ttyUSB0
+```
+
+## Test sound
+```
+speaker-test -c2 -twav -l7 -D plughw:1,0
+```
 
 ## Run the server
 ```
@@ -58,7 +86,7 @@ cd /opt/sautsumasin/server && node server.js
 su pi -c  '/opt/sautsumasin/startup.sh  &'
 ```
 
-## Add to crontab
+## Add to crontab nightly reboot
 ```
 sudo crontab -e
 0 4   *   *   *    /sbin/shutdown -r +5
