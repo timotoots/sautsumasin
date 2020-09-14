@@ -1,4 +1,9 @@
 #include <FastLED.h>
+#include <NCP5623.h>
+
+// For 12V LEDs
+NCP5623 rgb;
+
 
 FASTLED_USING_NAMESPACE
 
@@ -15,7 +20,7 @@ FASTLED_USING_NAMESPACE
 #warning "Requires FastLED 3.1 or later; check github for latest code."
 #endif
 
-#define DATA_PIN    D1
+#define DATA_PIN    4
 //#define CLK_PIN   4
 #define LED_TYPE    WS2812
 #define COLOR_ORDER RGB
@@ -25,10 +30,16 @@ CRGB leds[NUM_LEDS];
 #define BRIGHTNESS          96
 #define FRAMES_PER_SECOND  120
 
+int title_brighness = 255;
+int title_brighness_last = 0;
+
 void setup() {
 
   Serial.begin(115200);
   delay(3000); // 3 second delay for recovery
+
+  rgb.begin();
+
   
   // tell FastLED about the LED strip configuration
   FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
@@ -63,6 +74,13 @@ void loop()
   // insert a delay to keep the framerate modest
   FastLED.delay(1000/FRAMES_PER_SECOND); 
 
+  // main_title
+  if(title_brighness_last != title_brighness){
+      rgb.setColor(title_brighness,0,0);
+      title_brighness_last = title_brighness;
+  }
+
+
   // send to serial 1 1 or 1 2 or 1 3 or 1 4
   while (Serial.available() > 0) {
      
@@ -80,6 +98,15 @@ void loop()
             Serial.println(state);
   
       }
+
+      if (state==1){
+        title_brighness = 255;
+      }
+
+      if (state==2){
+        title_brighness = 0;
+      }
+
       
     }
     
