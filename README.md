@@ -75,7 +75,7 @@ minicom -b 115200 -o -D /dev/ttyUSB0
 
 ## Test sound
 ```
-speaker-test -c2 -twav -l7 -D plughw:1,0
+speaker-test -c2 -twav -l7 -D plughw:0,0
 ```
 
 ## Run the server
