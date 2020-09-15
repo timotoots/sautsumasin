@@ -14,6 +14,10 @@
 #define IMAGE_POSY 0
 #define STRIPES 4
 
+#define NUM_STOPS 10 // How many stop positions on a stripe
+#define DEVICE_ID 10002
+#define SERIAL_DEBUG 1
+
 #define PANEL1_STRIPE0_WIDTH 24
 #define PANEL1_STRIPE0_OFFSET_X 0
 #define PANEL1_STRIPE1_WIDTH 24
@@ -391,6 +395,8 @@ void setup() {
     // callback, name, stack size, null, priority 3-0 (0 lowest), null, core (0 or 1)
     xTaskCreatePinnedToCore(refreshTask, "refreshTask", 2048, NULL, 3, NULL, 0);
     xTaskCreatePinnedToCore(dataTask, "dataTask", 2048, NULL, 1, NULL, 1);
+    xTaskCreatePinnedToCore(protocolTask, "protocolTask", 2048, NULL, 1, NULL, 1);
+    
 }
 
 void loop() {}
@@ -408,8 +414,47 @@ void refreshTask(void *pvParameters) {
 }
 
 
+/////////////////////////////////////////////////////////////////////////////
+
+// Functions from protocol
+
+void setBufferPixel(int x, int y, int r, int g, int b){
+
+  // x: 0 - DISPLAY_WIDTH
+  // y: 0 - DISPLAY_HEIGHT
+  // r,g,b: 0 - 255
+  
+  
+  
+}
+
+void startStripe(int stripe_id){
+
+  // starts animation
+  // stripe_id: 0 - 7
+
+  
+}
+
+void setBrighness(int factor){
+
+  // factors: 1 2 3
+  
+}
 
 
+void stopStripe(int stripe_id , int stop_position){
+
+  // stops stripe at position
+  // stripe_id: 0 - 7
+  // stop_position: 0 - stops_count
+
+  // set position to stop
+
+  
+}
+
+/////////////////////////////////////////////////////////////////////////////
 
 void dataTask2(void *pvParameters) {
     (void) pvParameters;
@@ -654,5 +699,3 @@ void sendConfiguration(unsigned int data, unsigned char latches) {
         digitalWriteFast(PIN_LE, 0);
     }
 }
-
-
