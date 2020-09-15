@@ -26,7 +26,7 @@ sudo raspi-config
 ## Install new node.js
 ```
 sudo bash  
-curl -sL https://deb.nodesource.com/setup_12.x | bash -  
+curl -sL https://deb.nodesource.com/setup_11.x | bash -  
 sudo apt-get install -y nodejs  
 node -v  
 ```
@@ -41,8 +41,11 @@ cd /opt && git clone https://github.com/timotoots/sautsumasin.git
 ```
 
 
+
 ## Install Node packages
 ```
+
+sudo apt-get install build-essential libudev-dev
 cd /opt/sautsumasin && node server.js
 ```
 
@@ -91,6 +94,12 @@ su pi -c  '/opt/sautsumasin/startup.sh  &'
 sudo crontab -e
 0 4   *   *   *    /sbin/shutdown -r +5
 ```
+# Credits
+
+## Icons
+receipt by Creaticca Creative Agency from the Noun Project  
+Newspaper by Gonzalo Bravo from the Noun Project  
+
 
 
 # Data
