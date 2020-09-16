@@ -12,7 +12,7 @@ void protocolTask(void *pvParameters) {
         int a = Serial.parseInt();
 
         // message for this controller?
-        if(a == DEVICE_ID){
+        if(a == PANEL_NR+10001){
           
           int cmd = Serial.parseInt();
 
@@ -38,7 +38,7 @@ void protocolTask(void *pvParameters) {
                  }
 
                  // PAPS
-                 // startStripe(b-1);
+                 startStripe(b-1,2);
               }
               
           /////////////////////
@@ -72,7 +72,7 @@ void protocolTask(void *pvParameters) {
                       }
                      
                      // PAPS
-                     // stopStripe(b-1,c-1);
+                     stopStripe(b-1,c-1);
 
                   }
               }
@@ -122,7 +122,7 @@ void protocolTask(void *pvParameters) {
 
               int x = Serial.parseInt();
               
-              if(x >= 1 && x <= DISPLAY_WIDTH){
+              if(x >= 1 && x <= IMAGE_WIDTH){
 
                  int y = Serial.parseInt();
                  if(y >= 1 && y <= DISPLAY_HEIGHT){

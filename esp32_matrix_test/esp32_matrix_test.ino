@@ -7,34 +7,106 @@
 #define DISPLAY_WIDTH       128*1
 #define DISPLAY_HEIGHT      64*1
 #define DISPLAY_SCAN_LINES  32 // scan lines are usually half the display height
-#define PANELS 2
+#define PANELS 3
 #define EFFECT              1  // 1: Gray gradient (static)  2: Random gray static  3: Random color static  4: Animated Rainbow  5: Animated random gray static 6: custom
 #define IMAGE_WIDTH 340
 #define IMAGE_HEIGHT 24
 #define IMAGE_POSY 0
 #define STRIPES 4
+#define OFFSET_BUFFERS 2
 
 #define NUM_STOPS 10 // How many stop positions on a stripe
-#define DEVICE_ID 10002
 #define SERIAL_DEBUG 1
 
-#define PANEL1_STRIPE0_WIDTH 24
-#define PANEL1_STRIPE0_OFFSET_X 0
-#define PANEL1_STRIPE1_WIDTH 24
-#define PANEL1_STRIPE1_OFFSET_X 300
-#define PANEL1_STRIPE2_WIDTH 16
-#define PANEL1_STRIPE2_OFFSET_X 0
-#define PANEL1_STRIPE3_WIDTH 0
-#define PANEL1_STRIPE3_OFFSET_X 0
+#define PANEL_NR 2 // 0,1,2
 
-#define PANEL2_STRIPE0_WIDTH 24
+// panel 0
+#define PANEL_0_BEGIN_X 0
+#define PANEL_0_END_X 339
+#define PANEL_0_BEGIN_Y 0
+#define PANEL_0_END_Y 63
+
+#define PANEL0_STRIPE0_WIDTH 24
+#define PANEL0_STRIPE0_OFFSET_X 0
+#define PANEL0_STRIPE0_OFFSET_Y 0
+
+#define PANEL0_STRIPE1_WIDTH 24
+#define PANEL0_STRIPE1_OFFSET_X 0
+#define PANEL0_STRIPE1_OFFSET_Y 24
+
+#define PANEL0_STRIPE2_WIDTH 16
+#define PANEL0_STRIPE2_OFFSET_X 0
+#define PANEL0_STRIPE2_OFFSET_Y 48
+
+#define PANEL0_STRIPE3_WIDTH 0
+#define PANEL0_STRIPE3_OFFSET_X 0
+#define PANEL0_STRIPE3_OFFSET_Y 0
+
+// panel 1
+#define PANEL_1_BEGIN_X 0
+#define PANEL_1_END_X 339
+#define PANEL_1_BEGIN_Y 64
+#define PANEL_1_END_Y 127
+
+#define PANEL1_STRIPE0_WIDTH 8
+#define PANEL1_STRIPE0_OFFSET_X 0
+#define PANEL1_STRIPE0_OFFSET_Y -16
+
+#define PANEL1_STRIPE1_WIDTH 24
+#define PANEL1_STRIPE1_OFFSET_X 0
+#define PANEL1_STRIPE1_OFFSET_Y 8
+
+#define PANEL1_STRIPE2_WIDTH 24
+#define PANEL1_STRIPE2_OFFSET_X 0
+#define PANEL1_STRIPE2_OFFSET_Y 32
+
+#define PANEL1_STRIPE3_WIDTH 8
+#define PANEL1_STRIPE3_OFFSET_X 0
+#define PANEL1_STRIPE3_OFFSET_Y 56
+
+// panel 2
+#define PANEL_2_BEGIN_X 0
+#define PANEL_2_END_X 339
+#define PANEL_2_BEGIN_Y 128
+#define PANEL_2_END_Y 191
+
+#define PANEL2_STRIPE0_WIDTH 16
 #define PANEL2_STRIPE0_OFFSET_X 0
+#define PANEL2_STRIPE0_OFFSET_Y -8
+
 #define PANEL2_STRIPE1_WIDTH 24
-#define PANEL2_STRIPE1_OFFSET_X 300
-#define PANEL2_STRIPE2_WIDTH 16
+#define PANEL2_STRIPE1_OFFSET_X 0
+#define PANEL2_STRIPE1_OFFSET_Y 16
+
+#define PANEL2_STRIPE2_WIDTH 24
 #define PANEL2_STRIPE2_OFFSET_X 0
+#define PANEL2_STRIPE2_OFFSET_Y 40
+
 #define PANEL2_STRIPE3_WIDTH 0
 #define PANEL2_STRIPE3_OFFSET_X 0
+#define PANEL2_STRIPE3_OFFSET_Y 0
+
+// panel 3
+#define PANEL_3_BEGIN_X 0
+#define PANEL_3_END_X 339
+#define PANEL_3_BEGIN_Y 192
+#define PANEL_3_END_Y 255
+
+#define PANEL3_STRIPE0_WIDTH 16
+#define PANEL3_STRIPE0_OFFSET_X 0
+#define PANEL3_STRIPE0_OFFSET_Y -8
+
+#define PANEL3_STRIPE1_WIDTH 24
+#define PANEL3_STRIPE1_OFFSET_X 300
+#define PANEL3_STRIPE1_OFFSET_Y 16
+
+#define PANEL3_STRIPE2_WIDTH 24
+#define PANEL3_STRIPE2_OFFSET_X 0
+#define PANEL3_STRIPE2_OFFSET_Y 40
+
+#define PANEL3_STRIPE3_WIDTH 0
+#define PANEL3_STRIPE3_OFFSET_X 0
+#define PANEL3_STRIPE3_OFFSET_Y 0
 
 
 #if (( PANEL1_STRIPE0_WIDTH + PANEL1_STRIPE1_WIDTH + PANEL1_STRIPE2_WIDTH + PANEL1_STRIPE3_WIDTH ) > DISPLAY_HEIGHT )
@@ -100,8 +172,10 @@ unsigned char *screenBuffer[3];
 unsigned int displayBufferWidth = max(IMAGE_WIDTH,DISPLAY_WIDTH);
 unsigned int panelBufferOffsetX = 0;
 unsigned int displayBufferOffsetY = 0;
-unsigned int stripes[STRIPES][3]; // current X offset, beginY , endY
-unsigned int offsetMatrix[PANELS][2][DISPLAY_HEIGHT];
+int stripes_Y[PANELS][STRIPES][8]; // beginY , endY, width, id, start, stop, current offset, roll counter
+unsigned int offsetMatrix[PANELS][OFFSET_BUFFERS][DISPLAY_HEIGHT]; // x offsets
+unsigned int panels_parm[PANELS][2];
+unsigned int stripe_actions[PANELS*4][4]; // start, stop, current offset,roll counter
 bool offsetOK = true;
 /*
  * methods that are loaded into IRAM with IRAM_ATTR to avoid being loaded on call from flash (ESP-IDF command)
@@ -181,7 +255,7 @@ void IRAM_ATTR LedWallRefresh() {
 //    	memcpy(offsetMatrix[0],offsetMatrix[1],DISPLAY_HEIGHT*2);
     	for ( unsigned short j = 0; j < PANELS ; j++)
     		for ( unsigned short i = 0; i < DISPLAY_HEIGHT ; i++)
-    			offsetMatrix[j][0][i] = offsetMatrix[j][1][i];
+    			offsetMatrix[j][0][i] = offsetMatrix[j][1][i]; // X offset
     }
     sendLatch(3); // send vsync
  //   unsigned int displayBufferOffsetX = 0;
@@ -190,8 +264,8 @@ void IRAM_ATTR LedWallRefresh() {
     // since the generation of the output signal in the ICN2053 chips is directly tied to the input clock signal when receiving pixel data,
     // the order and amount of clock cycles, latches, PWM clock and so on can not be changed.
     for(unsigned int y = 0; y < DISPLAY_SCAN_LINES; y++) { // 0-N scan lines * 2 = pixel height
-        bufferPos_t = (y * imageBufferLineSize)+ offsetMatrix[0][0][y] * 16;
-        bufferPos1_t = (y * imageBufferLineSize)+ offsetMatrix[0][0][y + DISPLAY_SCAN_LINES] * 16;
+        bufferPos_t = (y * imageBufferLineSize)+ offsetMatrix[PANEL_NR][0][y] * 16;
+        bufferPos1_t = (y * imageBufferLineSize)+ offsetMatrix[PANEL_NR][0][y + DISPLAY_SCAN_LINES] * 16;
 
     	for(unsigned int x = 0; x < 16; x++) { // 0-15 because 1 chip has 16 outputs
             sendScanLine(y % 2 * DISPLAY_SCAN_LINES /2  + x); // sends 0-N scan lines in every 2 (4 combined) data lines
@@ -202,11 +276,11 @@ void IRAM_ATTR LedWallRefresh() {
 //            	pos = bufferPos + sect * 16 * 16;
 //                pos1 = bufferPos1 + sect * 16 * 16;
             	pix_addr = sect * 16 * 16;
-            	if ( 16 * sect + x + offsetMatrix[0][0][y] >= IMAGE_WIDTH)
+            	if ( 16 * sect + x + offsetMatrix[PANEL_NR][0][y] >= IMAGE_WIDTH)
                 	pix_addr -= IMAGE_WIDTH * 16;
             	pos = bufferPos + pix_addr;
             	pix_addr = sect * 16 * 16;
-            	if ( 16 * sect + x + offsetMatrix[0][0][y + DISPLAY_SCAN_LINES] >= IMAGE_WIDTH)
+            	if ( 16 * sect + x + offsetMatrix[PANEL_NR][0][y + DISPLAY_SCAN_LINES] >= IMAGE_WIDTH)
                 	pix_addr -= IMAGE_WIDTH * 16;
                 pos1 = bufferPos1 + pix_addr;
 
@@ -274,46 +348,69 @@ void logMemory() {
   log_d("Largest free memory block: %d", ESP.getFreeHeap());
 }
 
-/*
- * Arduino setup + loop
- */
 void prepareImage() {
     unsigned char *imageBuffer = screenBuffer[imageScreenBuffer];
     unsigned int posX=0,posY=0,maxX,maxY;
+    unsigned int stripeRow;
 
+//    unsigned int offsetMatrix[PANELS][OFFSET_BUFFERS][DISPLAY_HEIGHT];
+//	offsetMatrix[0][0][x][1] = PANEL0_STRIPE0_OFFSET_Y;
     posX = IMAGE_WIDTH -1;
-// first stripe
-    for ( unsigned int i=0; i < sizeof(testriba); i=i+3){
-		cacheWrite(imageBuffer,posX,posY,testriba[i],testriba[i+1],testriba[i+2]);
-		posY++;
-		if ( posY == IMAGE_HEIGHT){
-			posY=0;
-			posX--;
-		}
+// stripe 0
+    if (stripes_Y[PANEL_NR][0][2]){ // stripe width > 0
+    	posY = stripes_Y[PANEL_NR][0][0]; // stripe begin
+    	for ( unsigned int i=0; i < sizeof(testriba); i=i+3){
+    		if ( posY >= 0  && posY < DISPLAY_HEIGHT)
+    			cacheWrite(imageBuffer,posX,posY,testriba[i],testriba[i+1],testriba[i+2]);
+    		posY++;
+    		if ( posY == IMAGE_HEIGHT){
+    			posY=0;
+    			posX--;
+    		}
+    	}
+    }
+// stripe 1
+    if (stripes_Y[PANEL_NR][1][2]){ // stripe width > 0
+    	posY = stripes_Y[PANEL_NR][1][0]; // stripe begin
+    	posX = IMAGE_WIDTH -1;
+    	for ( unsigned int i=0; i < sizeof(testriba); i=i+3){
+    		if ( posY >= 0  && posY < DISPLAY_HEIGHT)
+    			cacheWrite(imageBuffer,posX,posY,testriba[i],testriba[i+1],testriba[i+2]);
+    		posY++;
+    		if ( posY == IMAGE_HEIGHT * 2){
+    			posY=IMAGE_HEIGHT;
+    			posX--;
+    		}
+    	}
 	}
-// second stripe
-    posY = IMAGE_HEIGHT;
-    posX = IMAGE_WIDTH -1;
-    for ( unsigned int i=0; i < sizeof(testriba); i=i+3){
-		cacheWrite(imageBuffer,posX,posY,testriba[i],testriba[i+1],testriba[i+2]);
-		posY++;
-		if ( posY == IMAGE_HEIGHT * 2){
-			posY=IMAGE_HEIGHT;
-			posX--;
-		}
-	}
-// third stripe
-        posY = IMAGE_HEIGHT * 2;
-        posX = IMAGE_WIDTH -1;
-        for ( unsigned int i=0; i < sizeof(testriba); i=i+3){
-        	if ( posY < DISPLAY_HEIGHT)
-        		cacheWrite(imageBuffer,posX,posY,testriba[i],testriba[i+1],testriba[i+2]);
+// stripe 2
+    if (stripes_Y[PANEL_NR][2][2]){ // stripe width > 0
+    	posY = stripes_Y[PANEL_NR][2][0]; // stripe begin
+    	posX = IMAGE_WIDTH -1;
+    	for ( unsigned int i=0; i < sizeof(testriba); i=i+3){
+    		if ( posY >= 0  && posY < DISPLAY_HEIGHT)
+    			cacheWrite(imageBuffer,posX,posY,testriba[i],testriba[i+1],testriba[i+2]);
     		posY++;
     		if ( posY == IMAGE_HEIGHT * 3){
     			posY=IMAGE_HEIGHT * 2;
     			posX--;
     		}
     	}
+    }
+// stripe 3
+    if (stripes_Y[PANEL_NR][3][2]){ // stripe width > 0
+    	posY = stripes_Y[PANEL_NR][3][0]; // stripe begin
+    	posX = IMAGE_WIDTH -1;
+    	for ( unsigned int i=0; i < sizeof(testriba); i=i+3){
+    		if ( posY >= 0  && posY < DISPLAY_HEIGHT)
+    			cacheWrite(imageBuffer,posX,posY,testriba[i],testriba[i+1],testriba[i+2]);
+    		posY++;
+    		if ( posY == IMAGE_HEIGHT * 3){
+    			posY=IMAGE_HEIGHT * 2;
+    			posX--;
+    		}
+    	}
+    }
 
 }
 void setup() {
@@ -338,31 +435,215 @@ void setup() {
         screenBuffer[2][x] = 0;
     }
 
-
-    prepareImage();
+//int stripes_Y[PANELS][STRIPES][8]; // beginY , endY, width, id, start, stop, current offset, roll counter
+// fill stripe_actions
+    for ( unsigned int i=0; i< PANELS*4; i++){
+    	stripe_actions[i][0] = 0; //start
+    	stripe_actions[i][1] = 0; //stop
+    	stripe_actions[i][2] = 0; //current offset
+    	stripe_actions[i][3] = 0; //speed
+    }
 // fill rows offset matrix
+#if ( PANELS > 0)
+
+    stripes_Y[0][0][0] = PANEL0_STRIPE0_OFFSET_Y;
+    stripes_Y[0][0][1] = 0;
+    stripes_Y[0][0][2] = PANEL0_STRIPE0_WIDTH;
+    stripes_Y[0][0][3] = 0;
+    stripes_Y[0][0][4] = -1;
+    stripes_Y[0][0][5] = -1;
+    stripes_Y[0][1][0] = PANEL0_STRIPE1_OFFSET_Y;
+    stripes_Y[0][1][1] = 0;
+    stripes_Y[0][1][2] = PANEL0_STRIPE1_WIDTH;
+    stripes_Y[0][1][3] = 1;
+    stripes_Y[0][1][4] = -1;
+    stripes_Y[0][1][5] = -1;
+    stripes_Y[0][2][0] = PANEL0_STRIPE2_OFFSET_Y;
+    stripes_Y[0][2][1] = 0;
+    stripes_Y[0][2][2] = PANEL0_STRIPE2_WIDTH;
+    stripes_Y[0][2][3] = 2;
+    stripes_Y[0][2][4] = -1;
+    stripes_Y[0][2][5] = -1;
+    stripes_Y[0][3][0] = PANEL0_STRIPE3_OFFSET_Y;
+    stripes_Y[0][3][1] = 0;
+    stripes_Y[0][3][2] = PANEL0_STRIPE3_WIDTH;
+    stripes_Y[0][3][3] = -1;
+    stripes_Y[0][3][4] = -1;
+    stripes_Y[0][3][5] = -1;
+
     for ( unsigned int x = 0; x < DISPLAY_HEIGHT; x++){
-    	if ( x < PANEL1_STRIPE0_WIDTH){
-    		offsetMatrix[0][0][x] = PANEL1_STRIPE0_OFFSET_X;
-    		offsetMatrix[0][1][x] = PANEL1_STRIPE0_OFFSET_X;
+    	if ( x < PANEL0_STRIPE0_WIDTH){
+    		offsetMatrix[0][0][x] = PANEL0_STRIPE0_OFFSET_X;
+    		offsetMatrix[0][1][x] = PANEL0_STRIPE0_OFFSET_X;
     	}
-    	else if ( x >= PANEL1_STRIPE0_WIDTH && x < PANEL1_STRIPE1_WIDTH + PANEL1_STRIPE0_WIDTH){
-//    		offsetMatrix[0][x] = STRIPE1_OFFSET_X;
-    		offsetMatrix[0][0][x] = 0;
-    		offsetMatrix[0][1][x] = PANEL1_STRIPE1_OFFSET_X;
+    	else if ( x >= PANEL0_STRIPE0_WIDTH && x < PANEL0_STRIPE1_WIDTH + PANEL0_STRIPE0_WIDTH){
+    		offsetMatrix[0][0][x] = PANEL0_STRIPE1_OFFSET_X;
+    		offsetMatrix[0][1][x] = PANEL0_STRIPE1_OFFSET_X;
     	}
-    	else if ( x >= PANEL1_STRIPE0_WIDTH + PANEL1_STRIPE1_WIDTH && x < PANEL1_STRIPE2_WIDTH + PANEL1_STRIPE1_WIDTH + PANEL1_STRIPE0_WIDTH){
-    		offsetMatrix[0][0][x] = PANEL1_STRIPE2_OFFSET_X;
-    		offsetMatrix[0][1][x] = PANEL1_STRIPE2_OFFSET_X;
+    	else if ( x >= PANEL0_STRIPE0_WIDTH + PANEL0_STRIPE1_WIDTH && x < PANEL0_STRIPE2_WIDTH + PANEL0_STRIPE1_WIDTH + PANEL0_STRIPE0_WIDTH){
+    		offsetMatrix[0][0][x] = PANEL0_STRIPE2_OFFSET_X;
+    		offsetMatrix[0][1][x] = PANEL0_STRIPE2_OFFSET_X;
     	}
-    	else if ( x >= PANEL1_STRIPE0_WIDTH + PANEL1_STRIPE1_WIDTH + PANEL1_STRIPE2_WIDTH && x < DISPLAY_HEIGHT){
-    		offsetMatrix[0][0][x] = PANEL1_STRIPE3_OFFSET_X;
-    		offsetMatrix[0][1][x] = PANEL1_STRIPE3_OFFSET_X;
+    	else if ( x >= PANEL0_STRIPE0_WIDTH + PANEL0_STRIPE1_WIDTH + PANEL0_STRIPE2_WIDTH && x < DISPLAY_HEIGHT){
+    		offsetMatrix[0][0][x] = PANEL0_STRIPE3_OFFSET_X;
+    		offsetMatrix[0][1][x] = PANEL0_STRIPE3_OFFSET_X;
     	}
     	else{
     		offsetMatrix[0][0][x] = 0;
+    		offsetMatrix[0][0][x] = 0;
     	}
     }
+#endif
+#if  ( PANELS > 1)
+    stripes_Y[1][0][0] = PANEL1_STRIPE0_OFFSET_Y;
+    stripes_Y[1][0][1] = 0;
+    stripes_Y[1][0][2] = PANEL1_STRIPE0_WIDTH;
+    stripes_Y[1][0][3] = 2;
+    stripes_Y[1][0][4] = -1;
+    stripes_Y[1][0][5] = -1;
+    stripes_Y[1][1][0] = PANEL1_STRIPE1_OFFSET_Y;
+    stripes_Y[1][1][1] = 0;
+    stripes_Y[1][1][2] = PANEL1_STRIPE1_WIDTH;
+    stripes_Y[1][1][3] = 3;
+    stripes_Y[1][1][4] = -1;
+    stripes_Y[1][1][5] = -1;
+    stripes_Y[1][2][0] = PANEL1_STRIPE2_OFFSET_Y;
+    stripes_Y[1][2][1] = 0;
+    stripes_Y[1][2][2] = PANEL1_STRIPE2_WIDTH;
+    stripes_Y[1][2][3] = 4;
+    stripes_Y[1][2][4] = -1;
+    stripes_Y[1][2][5] = -1;
+    stripes_Y[1][3][0] = PANEL1_STRIPE3_OFFSET_Y;
+    stripes_Y[1][3][1] = 0;
+    stripes_Y[1][3][2] = PANEL1_STRIPE3_WIDTH;
+    stripes_Y[1][3][3] = 5;
+    stripes_Y[1][3][4] = -1;
+    stripes_Y[1][3][5] = -1;
+
+    for ( unsigned int x = 0; x < DISPLAY_HEIGHT; x++){
+    	if ( x < PANEL1_STRIPE0_WIDTH){
+    		offsetMatrix[1][0][x] = PANEL1_STRIPE0_OFFSET_X;
+    		offsetMatrix[1][1][x] = PANEL1_STRIPE0_OFFSET_X;
+    	}
+    	else if ( x >= PANEL1_STRIPE0_WIDTH && x < PANEL1_STRIPE1_WIDTH + PANEL1_STRIPE0_WIDTH){
+    		offsetMatrix[1][0][x] = PANEL1_STRIPE1_OFFSET_X;
+    		offsetMatrix[1][1][x] = PANEL1_STRIPE1_OFFSET_X;
+    	}
+    	else if ( x >= PANEL1_STRIPE0_WIDTH + PANEL1_STRIPE1_WIDTH && x < PANEL1_STRIPE2_WIDTH + PANEL1_STRIPE1_WIDTH + PANEL1_STRIPE0_WIDTH){
+    		offsetMatrix[1][0][x] = PANEL1_STRIPE2_OFFSET_X;
+    		offsetMatrix[1][1][x] = PANEL1_STRIPE2_OFFSET_X;
+    	}
+    	else if ( x >= PANEL1_STRIPE0_WIDTH + PANEL1_STRIPE1_WIDTH + PANEL1_STRIPE2_WIDTH && x < DISPLAY_HEIGHT){
+    		offsetMatrix[1][0][x] = PANEL1_STRIPE3_OFFSET_X;
+    		offsetMatrix[1][1][x] = PANEL1_STRIPE3_OFFSET_X;
+    	}
+    	else{
+    		offsetMatrix[1][0][x] = 0;
+    		offsetMatrix[1][0][x] = 0;
+    	}
+    }
+#endif
+#if  ( PANELS > 2)
+    stripes_Y[2][0][0] = PANEL2_STRIPE0_OFFSET_Y;
+    stripes_Y[2][0][1] = 0;
+    stripes_Y[2][0][2] = PANEL2_STRIPE0_WIDTH;
+    stripes_Y[2][0][3] = 5;
+    stripes_Y[2][0][4] = -1;
+    stripes_Y[2][0][5] = -1;
+    stripes_Y[2][1][0] = PANEL2_STRIPE1_OFFSET_Y;
+    stripes_Y[2][1][1] = 0;
+    stripes_Y[2][1][2] = PANEL2_STRIPE1_WIDTH;
+    stripes_Y[2][1][3] = 6;
+    stripes_Y[2][2][4] = -1;
+    stripes_Y[2][2][5] = -1;
+    stripes_Y[2][2][0] = PANEL2_STRIPE2_OFFSET_Y;
+    stripes_Y[2][2][1] = 0;
+    stripes_Y[2][2][2] = PANEL2_STRIPE2_WIDTH;
+    stripes_Y[2][2][3] = 7;
+    stripes_Y[2][2][4] = -1;
+    stripes_Y[2][2][5] = -1;
+    stripes_Y[2][3][0] = PANEL2_STRIPE3_OFFSET_Y;
+    stripes_Y[2][3][1] = 0;
+    stripes_Y[2][3][2] = PANEL2_STRIPE3_WIDTH;
+    stripes_Y[2][3][3] = -1;
+    stripes_Y[2][2][4] = -1;
+    stripes_Y[2][2][5] = -1;
+
+    for ( unsigned int x = 0; x < DISPLAY_HEIGHT; x++){
+    	if ( x < PANEL2_STRIPE0_WIDTH){
+    		offsetMatrix[2][0][x] = PANEL2_STRIPE0_OFFSET_X;
+    		offsetMatrix[2][1][x] = PANEL2_STRIPE0_OFFSET_X;
+    	}
+    	else if ( x >= PANEL2_STRIPE0_WIDTH && x < PANEL2_STRIPE1_WIDTH + PANEL2_STRIPE0_WIDTH){
+    		offsetMatrix[2][0][x] = PANEL2_STRIPE1_OFFSET_X;
+    		offsetMatrix[2][1][x] = PANEL2_STRIPE1_OFFSET_X;
+     	}
+    	else if ( x >= PANEL2_STRIPE0_WIDTH + PANEL2_STRIPE1_WIDTH && x < PANEL2_STRIPE2_WIDTH + PANEL2_STRIPE1_WIDTH + PANEL2_STRIPE0_WIDTH){
+    		offsetMatrix[2][0][x] = PANEL2_STRIPE2_OFFSET_X;
+    		offsetMatrix[2][1][x] = PANEL2_STRIPE2_OFFSET_X;
+    	}
+    	else if ( x >= PANEL2_STRIPE0_WIDTH + PANEL2_STRIPE1_WIDTH + PANEL2_STRIPE2_WIDTH && x < DISPLAY_HEIGHT){
+    		offsetMatrix[2][0][x] = PANEL2_STRIPE3_OFFSET_X;
+    		offsetMatrix[2][1][x] = PANEL2_STRIPE3_OFFSET_X;
+    	}
+    	else{
+    		offsetMatrix[2][0][x] = 0;
+    		offsetMatrix[2][0][x] = 0;
+    	}
+    }
+#endif
+#if  ( PANELS > 3)
+    stripes_Y[3][0][0] = PANEL3_STRIPE0_OFFSET_Y;
+    stripes_Y[3][0][1] = 0;
+    stripes_Y[3][0][2] = PANEL3_STRIPE0_WIDTH;
+    stripes_Y[3][0][3] = -1;
+    stripes_Y[3][0][4] = -1;
+    stripes_Y[3][0][5] = -1;
+    stripes_Y[3][1][0] = PANEL3_STRIPE1_OFFSET_Y;
+    stripes_Y[3][1][1] = 0;
+    stripes_Y[3][1][2] = PANEL3_STRIPE1_WIDTH;
+    stripes_Y[3][1][3] = -1;
+    stripes_Y[3][1][4] = -1;
+    stripes_Y[3][1][5] = -1;
+    stripes_Y[3][2][0] = PANEL3_STRIPE2_OFFSET_Y;
+    stripes_Y[3][2][1] = 0;
+    stripes_Y[3][2][2] = PANEL3_STRIPE2_WIDTH;
+    stripes_Y[3][2][3] = -1;
+    stripes_Y[3][2][4] = -1;
+    stripes_Y[3][2][5] = -1;
+    stripes_Y[3][3][0] = PANEL3_STRIPE3_OFFSET_Y;
+    stripes_Y[3][3][1] = 0;
+    stripes_Y[3][3][2] = PANEL3_STRIPE3_WIDTH;
+    stripes_Y[3][3][3] = -1;
+    stripes_Y[3][3][4] = -1;
+    stripes_Y[3][3][5] = -1;
+
+    for ( unsigned int x = 0; x < DISPLAY_HEIGHT; x++){
+    	if ( x < PANEL3_STRIPE0_WIDTH){
+    		offsetMatrix[3][0][x] = PANEL3_STRIPE0_OFFSET_X;
+    		offsetMatrix[3][1][x] = PANEL3_STRIPE0_OFFSET_X;
+     	}
+    	else if ( x >= PANEL3_STRIPE0_WIDTH && x < PANEL3_STRIPE1_WIDTH + PANEL3_STRIPE0_WIDTH){
+    		offsetMatrix[3][0][x] = PANEL3_STRIPE1_OFFSET_X;
+    		offsetMatrix[3][1][x] = PANEL3_STRIPE1_OFFSET_X;
+     	}
+    	else if ( x >= PANEL3_STRIPE0_WIDTH + PANEL3_STRIPE1_WIDTH && x < PANEL3_STRIPE2_WIDTH + PANEL3_STRIPE1_WIDTH + PANEL3_STRIPE0_WIDTH){
+    		offsetMatrix[3][0][x] = PANEL3_STRIPE2_OFFSET_X;
+    		offsetMatrix[3][1][x] = PANEL3_STRIPE2_OFFSET_X;
+    	}
+    	else if ( x >= PANEL3_STRIPE0_WIDTH + PANEL3_STRIPE1_WIDTH + PANEL3_STRIPE2_WIDTH && x < DISPLAY_HEIGHT){
+    		offsetMatrix[3][0][x] = PANEL3_STRIPE3_OFFSET_X;
+    		offsetMatrix[3][1][x] = PANEL3_STRIPE3_OFFSET_X;
+    	}
+    	else{
+    		offsetMatrix[3][0][x] = 0;
+    		offsetMatrix[3][0][x] = 0;
+    	}
+    }
+#endif
+
+    prepareImage();
+
     // setup pins
     for (unsigned char x = 0; x < 14; x++) {
         pinMode(pins[x], OUTPUT);
@@ -456,57 +737,6 @@ void stopStripe(int stripe_id , int stop_position){
 
 /////////////////////////////////////////////////////////////////////////////
 
-void dataTask2(void *pvParameters) {
-    (void) pvParameters;
-
-    // start time measurement
-    unsigned long start = micros();
-    unsigned long time;
-
-    int currentY = 0;
-
-    while(1) {
-        unsigned char inactiveScreenBuffer = ((activeScreenBuffer + 1) & 0x1);
-        unsigned char *inactiveBuffer = screenBuffer[inactiveScreenBuffer];
-        unsigned char *activeBuffer = screenBuffer[activeScreenBuffer];
-
-        for (unsigned int x = 0; x < DISPLAY_WIDTH; x++) {
-            for (unsigned int y = 0; y < DISPLAY_HEIGHT; y++) {
-/*
-            	if(currentY==y){
-                	cacheWrite(inactiveBuffer, 5, y, 255, 255, 255); // x y
-            	} else {
-                	cacheWrite(inactiveBuffer, 5, y, 0, 0, 0); // x y
-
-            	}
-*/
-
-            	if ( y == 63){
-                	cacheWrite(inactiveBuffer, x, y, 255, 255, 255); // x y
-
-            	}
-            }
-
-        }
-
-        if(currentY==DISPLAY_HEIGHT){
-        	currentY = 0;
-        } else {
-        	currentY++;
-        }
-
-
-        // swap buffers
-        activeScreenBuffer = inactiveScreenBuffer;
-
-        // calculate time delayed by effect generation, set delay to reach fixed 30 fps
-        vTaskDelay(5 / portTICK_PERIOD_MS);  // 5ms delay to allow other background tasks to do something
-        time = 28333 - (micros() - start);
-        if(time < 28333) delayMicroseconds(time);
-        start = micros();
-    }
-}
-
 void dataTask(void *pvParameters) {
     (void) pvParameters;
 
@@ -515,163 +745,49 @@ void dataTask(void *pvParameters) {
     unsigned long time;
     bool first =  false;
     unsigned int index=0,index1=0,index2=0,index0=0;
-    Serial.begin(115200);
+//    Serial.begin(115200);
+//    while (1){};
     while (1) {        // calculate time delayed by effect generation, set delay to reach fixed 30 fps
 //    	Serial.println("A");
 //    	vTaskDelay(5 / portTICK_PERIOD_MS);  // 5ms delay to allow other background tasks to do something
 //        time = 28333 - (micros() - start);
 //        if(time < 28333) delayMicroseconds(time);
-        time = 14000 - (micros() - start);
-        if(time < 14000) delayMicroseconds(time);
+        time = 3500 - (micros() - start);
+        if(time < 3500) delayMicroseconds(time);
         start = micros();
-        index++;
-        if ( index % 2)
-        	index1++;
-        if ( index1 % 2)
-        	index2++;
-        if ( index > IMAGE_WIDTH -1)
-        	index = 0;
-        if ( index1 > 100)
-        	index1 = 0;
-        if ( index2 > 100){
-        	index2 = 0;
-        }
-//        displayBufferOffsetX = index;
+
+//int stripes_Y[PANELS][STRIPES][8]; // beginY , endY, width, id, start, stop, current offset, roll counter
+
         offsetOK = false;
-//        for ( unsigned int i = 0; i < 24 ; i++){
-//        	offsetMatrix[0][1][i] = index1;
-//        }
-//        Serial.println(index);
+
+		for ( unsigned short k = 0; k < STRIPES; k++){
+			if ( stripes_Y[PANEL_NR][k][4] == -1 )// not started
+				continue;
+			stripes_Y[PANEL_NR][k][7]++;
+			if (stripes_Y[PANEL_NR][k][7] == stripes_Y[PANEL_NR][k][4]){
+				stripes_Y[PANEL_NR][k][7] = 0; // counter = 0
+				stripes_Y[PANEL_NR][k][6]++;   // increase offset
+				if (stripes_Y[PANEL_NR][k][6]  > IMAGE_WIDTH -1)
+					stripes_Y[PANEL_NR][k][6] = 0;   // start over
+// fille offset matrix
+				int startY = stripes_Y[PANEL_NR][k][0];
+				if ( startY < 0)
+					startY = 0;
+			    for ( unsigned int i = startY; i < stripes_Y[PANEL_NR][k][0] + stripes_Y[PANEL_NR][k][2] ; i++){
+			        offsetMatrix[PANEL_NR][1][i] = stripes_Y[PANEL_NR][k][6];
+			    }
+			}
+		}
+        offsetOK = true;
+
         for ( unsigned int i = 24; i < 48 ; i++){
         	offsetMatrix[0][1][i] = index;
         }
 
 //        for ( unsigned int i = 48; i < DISPLAY_HEIGHT ; i++){
-//        	offsetMatrix[0][1][i] = index2;
+//        	offsetMatrix[0][1][i][0] = index2;
 //        }
-        offsetOK = true;
     };
-    // everything from this point on is not documented, implement your own data processing or generation here.
-    // use: cacheWrite(*inactiveBuffer, x, y, r, g, b); to set a pixel in the inactive buffer, then swap buffers
-
-    #if EFFECT < 3 || EFFECT == 5
-        unsigned char gray = 0;
-    #endif
-
-    #if EFFECT > 3
-        unsigned int pos1 = 0;
-        unsigned int pos2 = 0;
-        unsigned int posXY = 0;
-        unsigned int displayBufferHalfScreenSize = (DISPLAY_SCAN_LINES - 1) * displayBufferLineSize;
-        unsigned int posXYOutput = 0;
-        unsigned int posXYInput = 0;
-        unsigned char outputmask = 0x38;
-        unsigned char inputmask = 0x07;
-    #endif
-
-    #if EFFECT == 4
-        float widthDivRad = (float)DISPLAY_WIDTH / TWO_PI;
-        float one20DegreeRad = TWO_PI / 3;
-        float count = 0;
-        unsigned char red = 0;
-        unsigned char green = 0;
-        unsigned char blue = 0;
-    #endif
-
-    while(1) {
-        unsigned char inactiveScreenBuffer = ((activeScreenBuffer + 1) & 0x1);
-        unsigned char *inactiveBuffer = screenBuffer[inactiveScreenBuffer];
-        unsigned char *activeBuffer = screenBuffer[activeScreenBuffer];
-
-        for (unsigned int x = 0; x < DISPLAY_WIDTH; x++) {
-            for (unsigned int y = 0; y < DISPLAY_HEIGHT; y++) {
-
-            	#if EFFECT == 1
-                    if(y / 8 % 2 == 0) gray = (unsigned char)(x * 256 / DISPLAY_WIDTH);
-                    else gray = (unsigned char)((DISPLAY_WIDTH - x - 1) * 256 / DISPLAY_WIDTH);
- //                   if ( y < 10 && x < 20)
-                    cacheWrite(inactiveBuffer, x, y, gray, gray, gray);
-                #endif
-
-/*
-            	#if EFFECT == 1
-//            		gray = (unsigned char)(x * 256 / DISPLAY_WIDTH);
-            		//gray = (unsigned char)((DISPLAY_WIDTH - x - 1) * 256 / DISPLAY_WIDTH);
-               		gray = (unsigned char)(128);
-
-            		cacheWrite(inactiveBuffer, x, y, gray, gray, gray);
-				#endif
-*/
-                #if EFFECT == 2
-                    gray = random(256);
-
-                    cacheWrite(inactiveBuffer, x, y, gray, gray, gray);
-                #endif
-
-                #if EFFECT == 3
-                    cacheWrite(inactiveBuffer, x, y, random(256), random(256), random(256));
-                #endif
-
-                #if EFFECT > 3
-                    if(y > 0 && y < DISPLAY_SCAN_LINES) {
-                        posXY = (DISPLAY_SCAN_LINES - y - 1) * displayBufferLineSize + x * 16;
-
-                        for (unsigned int bit = 0; bit < 16; bit++) {
-                            pos1 = posXY + bit;
-                            pos2 = pos1 + displayBufferLineSize;
-
-                            inactiveBuffer[pos2] = activeBuffer[pos1];
-                        }
-                    }
-                #endif
-            }
-
-            #if EFFECT > 3
-                posXYOutput = x * 16;
-                posXYInput = displayBufferHalfScreenSize + posXYOutput;
-
-                for (unsigned int bit = 0; bit < 16; bit++) {
-                    inactiveBuffer[posXYOutput + bit] = (inactiveBuffer[posXYOutput + bit] & ~outputmask) | ((activeBuffer[posXYInput + bit] & inputmask) << 3);
-                }
-            #endif
-
-            #if EFFECT == 4
-                float sine1Hertz = (float)x / widthDivRad + count;
-
-                red =   (unsigned char)((sin(sine1Hertz                     ) + 1) * 128);
-                green = (unsigned char)((sin(sine1Hertz + one20DegreeRad    ) + 1) * 128);
-                blue =  (unsigned char)((sin(sine1Hertz + one20DegreeRad * 2) + 1) * 128);
-
-                cacheWrite(inactiveBuffer, x, 0, red, green, blue);
-            #endif
-
-            #if EFFECT == 5
-                gray = random(256);
-
-                cacheWrite(inactiveBuffer, x, 0, gray, gray, gray);
-            #endif
-        }
-
-        #if EFFECT == 4
-            count += 0.1;
-            if(count > TWO_PI) count -= TWO_PI;
-        #endif
-
-        // swap buffers
-        if ( !first ){
-        	activeScreenBuffer = inactiveScreenBuffer;
-        	first =  true;
-        	while (1){};
-        }
-
-        // calculate time delayed by effect generation, set delay to reach fixed 30 fps
-        vTaskDelay(5 / portTICK_PERIOD_MS);  // 5ms delay to allow other background tasks to do something
-        time = 28333 - (micros() - start);
-        if(time < 28333) delayMicroseconds(time);
-//        time = 14166 - (micros() - start);
-//        if(time < 14166) delayMicroseconds(time);
-        start = micros();
-    }
 }
 
 /*
@@ -699,3 +815,37 @@ void sendConfiguration(unsigned int data, unsigned char latches) {
         digitalWriteFast(PIN_LE, 0);
     }
 }
+//unsigned short stripe_actions[PANELS*4][2];
+//int stripes_Y[PANELS][STRIPES][8]; // beginY , endY, width, id, start, stop, current offset, roll counter
+void startStripe(unsigned short stripe_id, unsigned int speed){ // stripes 0...7
+	short stripe = -1;
+	for ( unsigned int i = 0; i < STRIPES; i++){
+		if (stripes_Y[PANEL_NR][i][3] == stripe_id){
+			stripe =  i;
+			break;
+		}
+	}
+	if ( stripe == -1)
+		return;
+	stripes_Y[PANEL_NR][stripe][7] = 0; // roll counter
+	stripes_Y[PANEL_NR][stripe][5] = -1; // stop
+	switch (stripe){
+		case 0: //
+			stripes_Y[PANEL_NR][stripe][4] = 1; // start with speed speed
+			break;
+		case 1: //
+			stripes_Y[PANEL_NR][stripe][4] = 2; // start with speed speed
+			break;
+		case 2: //
+			stripes_Y[PANEL_NR][stripe][4] = 3; // start with speed speed
+			break;
+		case 3:	 //
+			stripes_Y[PANEL_NR][stripe][4] = 4; // start with speed speed
+			break;
+	}
+	;
+}
+void stopStripe(unsigned int stripe_id,unsigned int number){
+	;
+}
+
