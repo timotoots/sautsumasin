@@ -121,7 +121,7 @@ sudo crontab -e
 ## Icons
 receipt by Creaticca Creative Agency from the Noun Project  
 Newspaper by Gonzalo Bravo from the Noun Project  
-
+joker face by Phạm Thanh Lộc from the Noun Project
 
 
 # Data
