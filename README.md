@@ -22,6 +22,14 @@ Just for self documentation.
 sudo apt install git minicom
 sudo raspi-config
 ```
+## Set static DNS
+
+```
+sudo nano /etc/dhcpcd.conf
+```
+set line
+static domain_name_servers=1.1.1.1 8.8.8.8
+
 
 ## Install new node.js
 ```
