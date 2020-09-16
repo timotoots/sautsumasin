@@ -1,10 +1,9 @@
 
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 
-
 void protocolTask(void *pvParameters) {
 
-    Serial.begin(115200);
+//    Serial.begin(115200);
 
     while(1){
      while (Serial.available() > 0) {
@@ -12,7 +11,11 @@ void protocolTask(void *pvParameters) {
         int a = Serial.parseInt();
 
         // message for this controller?
-        if(a == DEVICE_ID){
+        if(a == 10000){
+        	Serial.print("DEVICE_ID: ");
+        	Serial.println(PANEL_NR+10001);
+
+        } else if(a == PANEL_NR+10001){
           
           int cmd = Serial.parseInt();
 
@@ -27,7 +30,7 @@ void protocolTask(void *pvParameters) {
 
               int b = Serial.parseInt();
               
-              if(b > 0 && b <= STRIPES){
+              if(b > 0 && b <= 8){
                  
                  if(SERIAL_DEBUG==1){
 
@@ -38,7 +41,7 @@ void protocolTask(void *pvParameters) {
                  }
 
                  // PAPS
-                 // startStripe(b-1);
+                 startStripe(b-1,2);
               }
               
           /////////////////////
@@ -57,7 +60,7 @@ void protocolTask(void *pvParameters) {
 
               int b = Serial.parseInt();
               
-              if(b >= 1 && b <= STRIPES){
+              if(b >= 1 && b <= 8){
 
                  int c = Serial.parseInt();
 
@@ -65,14 +68,14 @@ void protocolTask(void *pvParameters) {
     
                       if(SERIAL_DEBUG==1){
                          Serial.print("[PROTOCOL] ");
-                         Serial.print("Stopping stripe");
+                         Serial.print("Stopping stripe ");
                          Serial.print(b);
                          Serial.print(" at position ");
-                         Serial.print(c);
+                         Serial.println(c);
                       }
                      
                      // PAPS
-                     // stopStripe(b-1,c-1);
+                     stopStripe(b-1,c-1);
 
                   }
               }
@@ -122,7 +125,7 @@ void protocolTask(void *pvParameters) {
 
               int x = Serial.parseInt();
               
-              if(x >= 1 && x <= DISPLAY_WIDTH){
+              if(x >= 1 && x <= IMAGE_WIDTH){
 
                  int y = Serial.parseInt();
                  if(y >= 1 && y <= DISPLAY_HEIGHT){
@@ -173,3 +176,4 @@ void protocolTask(void *pvParameters) {
      } // while
      
     } // protocol
+
