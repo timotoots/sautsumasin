@@ -1,10 +1,9 @@
 
 #define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 
-
 void protocolTask(void *pvParameters) {
 
-    Serial.begin(115200);
+//    Serial.begin(115200);
 
     while(1){
      while (Serial.available() > 0) {
@@ -12,7 +11,11 @@ void protocolTask(void *pvParameters) {
         int a = Serial.parseInt();
 
         // message for this controller?
-        if(a == PANEL_NR+10001){
+        if(a == 10000){
+        	Serial.print("DEVICE_ID: ");
+        	Serial.println(PANEL_NR+10001);
+
+        } else if(a == PANEL_NR+10001){
           
           int cmd = Serial.parseInt();
 
@@ -27,7 +30,7 @@ void protocolTask(void *pvParameters) {
 
               int b = Serial.parseInt();
               
-              if(b > 0 && b <= STRIPES){
+              if(b > 0 && b <= 8){
                  
                  if(SERIAL_DEBUG==1){
 
@@ -57,7 +60,7 @@ void protocolTask(void *pvParameters) {
 
               int b = Serial.parseInt();
               
-              if(b >= 1 && b <= STRIPES){
+              if(b >= 1 && b <= 8){
 
                  int c = Serial.parseInt();
 
@@ -65,10 +68,10 @@ void protocolTask(void *pvParameters) {
     
                       if(SERIAL_DEBUG==1){
                          Serial.print("[PROTOCOL] ");
-                         Serial.print("Stopping stripe");
+                         Serial.print("Stopping stripe ");
                          Serial.print(b);
                          Serial.print(" at position ");
-                         Serial.print(c);
+                         Serial.println(c);
                       }
                      
                      // PAPS
@@ -173,3 +176,4 @@ void protocolTask(void *pvParameters) {
      } // while
      
     } // protocol
+

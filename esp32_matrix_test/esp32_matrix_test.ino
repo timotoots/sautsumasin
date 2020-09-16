@@ -18,7 +18,7 @@
 #define NUM_STOPS 10 // How many stop positions on a stripe
 #define SERIAL_DEBUG 1
 
-#define PANEL_NR 2 // 0,1,2
+#define PANEL_NR 0 // 0,1,2
 
 // panel 0
 #define PANEL_0_BEGIN_X 0
@@ -27,19 +27,19 @@
 #define PANEL_0_END_Y 63
 
 #define PANEL0_STRIPE0_WIDTH 24
-#define PANEL0_STRIPE0_OFFSET_X 0
+#define PANEL0_STRIPE0_OFFSET_X 254
 #define PANEL0_STRIPE0_OFFSET_Y 0
 
 #define PANEL0_STRIPE1_WIDTH 24
-#define PANEL0_STRIPE1_OFFSET_X 0
+#define PANEL0_STRIPE1_OFFSET_X 254
 #define PANEL0_STRIPE1_OFFSET_Y 24
 
 #define PANEL0_STRIPE2_WIDTH 16
-#define PANEL0_STRIPE2_OFFSET_X 0
+#define PANEL0_STRIPE2_OFFSET_X 254
 #define PANEL0_STRIPE2_OFFSET_Y 48
 
 #define PANEL0_STRIPE3_WIDTH 0
-#define PANEL0_STRIPE3_OFFSET_X 0
+#define PANEL0_STRIPE3_OFFSET_X 254
 #define PANEL0_STRIPE3_OFFSET_Y 0
 
 // panel 1
@@ -49,19 +49,19 @@
 #define PANEL_1_END_Y 127
 
 #define PANEL1_STRIPE0_WIDTH 8
-#define PANEL1_STRIPE0_OFFSET_X 0
+#define PANEL1_STRIPE0_OFFSET_X 254
 #define PANEL1_STRIPE0_OFFSET_Y -16
 
 #define PANEL1_STRIPE1_WIDTH 24
-#define PANEL1_STRIPE1_OFFSET_X 0
+#define PANEL1_STRIPE1_OFFSET_X 254
 #define PANEL1_STRIPE1_OFFSET_Y 8
 
 #define PANEL1_STRIPE2_WIDTH 24
-#define PANEL1_STRIPE2_OFFSET_X 0
+#define PANEL1_STRIPE2_OFFSET_X 254
 #define PANEL1_STRIPE2_OFFSET_Y 32
 
 #define PANEL1_STRIPE3_WIDTH 8
-#define PANEL1_STRIPE3_OFFSET_X 0
+#define PANEL1_STRIPE3_OFFSET_X 254
 #define PANEL1_STRIPE3_OFFSET_Y 56
 
 // panel 2
@@ -71,19 +71,19 @@
 #define PANEL_2_END_Y 191
 
 #define PANEL2_STRIPE0_WIDTH 16
-#define PANEL2_STRIPE0_OFFSET_X 0
+#define PANEL2_STRIPE0_OFFSET_X 254
 #define PANEL2_STRIPE0_OFFSET_Y -8
 
 #define PANEL2_STRIPE1_WIDTH 24
-#define PANEL2_STRIPE1_OFFSET_X 0
+#define PANEL2_STRIPE1_OFFSET_X 254
 #define PANEL2_STRIPE1_OFFSET_Y 16
 
 #define PANEL2_STRIPE2_WIDTH 24
-#define PANEL2_STRIPE2_OFFSET_X 0
+#define PANEL2_STRIPE2_OFFSET_X 254
 #define PANEL2_STRIPE2_OFFSET_Y 40
 
 #define PANEL2_STRIPE3_WIDTH 0
-#define PANEL2_STRIPE3_OFFSET_X 0
+#define PANEL2_STRIPE3_OFFSET_X 254
 #define PANEL2_STRIPE3_OFFSET_Y 0
 
 // panel 3
@@ -108,13 +108,14 @@
 #define PANEL3_STRIPE3_OFFSET_X 0
 #define PANEL3_STRIPE3_OFFSET_Y 0
 
-
+/*
 #if (( PANEL1_STRIPE0_WIDTH + PANEL1_STRIPE1_WIDTH + PANEL1_STRIPE2_WIDTH + PANEL1_STRIPE3_WIDTH ) > DISPLAY_HEIGHT )
 #error PANEL1_STRIPE0_WIDTH + PANEL1_STRIPE1_WIDTH + PANEL1_STRIPE2_WIDTH + PANEL1_STRIPE3_WIDTH should be <=  DISPLAY_HEIGHT
 #endif
 #if (( PANEL2_STRIPE0_WIDTH + PANEL2_STRIPE1_WIDTH + PANEL2_STRIPE2_WIDTH + PANEL2_STRIPE3_WIDTH ) > DISPLAY_HEIGHT )
 #error PANEL2_STRIPE0_WIDTH + PANEL2_STRIPE1_WIDTH + PANEL2_STRIPE2_WIDTH + PANEL2_STRIPE3_WIDTH should be <=  DISPLAY_HEIGHT
 #endif
+*/
 // leave this like it is, the pins are carefully selected to not interfere with special purpose pins
 // also pins with the same function are grouped together so they can be set with one command to save CPU cycles
 /*
@@ -363,8 +364,8 @@ void prepareImage() {
     		if ( posY >= 0  && posY < DISPLAY_HEIGHT)
     			cacheWrite(imageBuffer,posX,posY,testriba[i],testriba[i+1],testriba[i+2]);
     		posY++;
-    		if ( posY == IMAGE_HEIGHT){
-    			posY=0;
+    		if ( posY == IMAGE_HEIGHT + stripes_Y[PANEL_NR][0][0]){
+    	    	posY = stripes_Y[PANEL_NR][0][0]; // stripe begin
     			posX--;
     		}
     	}
@@ -377,8 +378,8 @@ void prepareImage() {
     		if ( posY >= 0  && posY < DISPLAY_HEIGHT)
     			cacheWrite(imageBuffer,posX,posY,testriba[i],testriba[i+1],testriba[i+2]);
     		posY++;
-    		if ( posY == IMAGE_HEIGHT * 2){
-    			posY=IMAGE_HEIGHT;
+    		if ( posY ==  IMAGE_HEIGHT + stripes_Y[PANEL_NR][1][0]){
+    			posY=stripes_Y[PANEL_NR][1][0];
     			posX--;
     		}
     	}
@@ -391,8 +392,8 @@ void prepareImage() {
     		if ( posY >= 0  && posY < DISPLAY_HEIGHT)
     			cacheWrite(imageBuffer,posX,posY,testriba[i],testriba[i+1],testriba[i+2]);
     		posY++;
-    		if ( posY == IMAGE_HEIGHT * 3){
-    			posY=IMAGE_HEIGHT * 2;
+    		if ( posY == IMAGE_HEIGHT + stripes_Y[PANEL_NR][2][0]){
+    			posY=stripes_Y[PANEL_NR][2][0];
     			posX--;
     		}
     	}
@@ -405,8 +406,8 @@ void prepareImage() {
     		if ( posY >= 0  && posY < DISPLAY_HEIGHT)
     			cacheWrite(imageBuffer,posX,posY,testriba[i],testriba[i+1],testriba[i+2]);
     		posY++;
-    		if ( posY == IMAGE_HEIGHT * 3){
-    			posY=IMAGE_HEIGHT * 2;
+    		if ( posY == IMAGE_HEIGHT + stripes_Y[PANEL_NR][3][0]){
+    			posY=stripes_Y[PANEL_NR][3][0];
     			posX--;
     		}
     	}
@@ -416,6 +417,8 @@ void prepareImage() {
 void setup() {
     // create screen buffers (uses ESP-IDF malloc command to find a piece of dynamic memory to hold the buffer)
     // we use double buffering to be able to manipulate one buffer while the display refresh uses the other buffer
+    Serial.begin(115200);
+
 	logMemory();
 	screenBuffer[0] = (unsigned char*)ps_malloc(displayBufferSize);
 	logMemory();
@@ -452,24 +455,28 @@ void setup() {
     stripes_Y[0][0][3] = 0;
     stripes_Y[0][0][4] = -1;
     stripes_Y[0][0][5] = -1;
+    stripes_Y[0][0][6] = PANEL0_STRIPE0_OFFSET_X;
     stripes_Y[0][1][0] = PANEL0_STRIPE1_OFFSET_Y;
     stripes_Y[0][1][1] = 0;
     stripes_Y[0][1][2] = PANEL0_STRIPE1_WIDTH;
     stripes_Y[0][1][3] = 1;
     stripes_Y[0][1][4] = -1;
     stripes_Y[0][1][5] = -1;
+    stripes_Y[0][1][6] = PANEL0_STRIPE2_OFFSET_X;
     stripes_Y[0][2][0] = PANEL0_STRIPE2_OFFSET_Y;
     stripes_Y[0][2][1] = 0;
     stripes_Y[0][2][2] = PANEL0_STRIPE2_WIDTH;
     stripes_Y[0][2][3] = 2;
     stripes_Y[0][2][4] = -1;
     stripes_Y[0][2][5] = -1;
+    stripes_Y[0][2][6] = PANEL0_STRIPE2_OFFSET_X;
     stripes_Y[0][3][0] = PANEL0_STRIPE3_OFFSET_Y;
     stripes_Y[0][3][1] = 0;
     stripes_Y[0][3][2] = PANEL0_STRIPE3_WIDTH;
     stripes_Y[0][3][3] = -1;
     stripes_Y[0][3][4] = -1;
     stripes_Y[0][3][5] = -1;
+    stripes_Y[0][3][6] = PANEL0_STRIPE0_OFFSET_X;
 
     for ( unsigned int x = 0; x < DISPLAY_HEIGHT; x++){
     	if ( x < PANEL0_STRIPE0_WIDTH){
@@ -490,7 +497,7 @@ void setup() {
     	}
     	else{
     		offsetMatrix[0][0][x] = 0;
-    		offsetMatrix[0][0][x] = 0;
+    		offsetMatrix[0][1][x] = 0;
     	}
     }
 #endif
@@ -501,24 +508,28 @@ void setup() {
     stripes_Y[1][0][3] = 2;
     stripes_Y[1][0][4] = -1;
     stripes_Y[1][0][5] = -1;
+    stripes_Y[1][0][6] = PANEL1_STRIPE0_OFFSET_X;
     stripes_Y[1][1][0] = PANEL1_STRIPE1_OFFSET_Y;
     stripes_Y[1][1][1] = 0;
     stripes_Y[1][1][2] = PANEL1_STRIPE1_WIDTH;
     stripes_Y[1][1][3] = 3;
     stripes_Y[1][1][4] = -1;
     stripes_Y[1][1][5] = -1;
+    stripes_Y[1][1][6] = PANEL0_STRIPE1_OFFSET_X;
     stripes_Y[1][2][0] = PANEL1_STRIPE2_OFFSET_Y;
     stripes_Y[1][2][1] = 0;
     stripes_Y[1][2][2] = PANEL1_STRIPE2_WIDTH;
     stripes_Y[1][2][3] = 4;
     stripes_Y[1][2][4] = -1;
     stripes_Y[1][2][5] = -1;
+    stripes_Y[1][2][6] = PANEL0_STRIPE2_OFFSET_X;
     stripes_Y[1][3][0] = PANEL1_STRIPE3_OFFSET_Y;
     stripes_Y[1][3][1] = 0;
     stripes_Y[1][3][2] = PANEL1_STRIPE3_WIDTH;
     stripes_Y[1][3][3] = 5;
     stripes_Y[1][3][4] = -1;
     stripes_Y[1][3][5] = -1;
+    stripes_Y[1][3][6] = PANEL0_STRIPE3_OFFSET_X;
 
     for ( unsigned int x = 0; x < DISPLAY_HEIGHT; x++){
     	if ( x < PANEL1_STRIPE0_WIDTH){
@@ -539,7 +550,7 @@ void setup() {
     	}
     	else{
     		offsetMatrix[1][0][x] = 0;
-    		offsetMatrix[1][0][x] = 0;
+    		offsetMatrix[1][1][x] = 0;
     	}
     }
 #endif
@@ -588,7 +599,7 @@ void setup() {
     	}
     	else{
     		offsetMatrix[2][0][x] = 0;
-    		offsetMatrix[2][0][x] = 0;
+    		offsetMatrix[2][1][x] = 0;
     	}
     }
 #endif
@@ -637,7 +648,7 @@ void setup() {
     	}
     	else{
     		offsetMatrix[3][0][x] = 0;
-    		offsetMatrix[3][0][x] = 0;
+    		offsetMatrix[3][1][x] = 0;
     	}
     }
 #endif
@@ -708,7 +719,7 @@ void setBufferPixel(int x, int y, int r, int g, int b){
   
   
 }
-
+/*
 void startStripe(int stripe_id){
 
   // starts animation
@@ -716,14 +727,14 @@ void startStripe(int stripe_id){
 
   
 }
-
+*/
 void setBrighness(int factor){
 
   // factors: 1 2 3
   
 }
 
-
+/*
 void stopStripe(int stripe_id , int stop_position){
 
   // stops stripe at position
@@ -734,7 +745,7 @@ void stopStripe(int stripe_id , int stop_position){
 
   
 }
-
+*/
 /////////////////////////////////////////////////////////////////////////////
 
 void dataTask(void *pvParameters) {
@@ -752,8 +763,8 @@ void dataTask(void *pvParameters) {
 //    	vTaskDelay(5 / portTICK_PERIOD_MS);  // 5ms delay to allow other background tasks to do something
 //        time = 28333 - (micros() - start);
 //        if(time < 28333) delayMicroseconds(time);
-        time = 3500 - (micros() - start);
-        if(time < 3500) delayMicroseconds(time);
+        time = 2000 - (micros() - start);
+        if(time < 2000) delayMicroseconds(time);
         start = micros();
 
 //int stripes_Y[PANELS][STRIPES][8]; // beginY , endY, width, id, start, stop, current offset, roll counter
@@ -763,7 +774,7 @@ void dataTask(void *pvParameters) {
 		for ( unsigned short k = 0; k < STRIPES; k++){
 			if ( stripes_Y[PANEL_NR][k][4] == -1 )// not started
 				continue;
-			stripes_Y[PANEL_NR][k][7]++;
+			stripes_Y[PANEL_NR][k][7]++; // roll counter
 			if (stripes_Y[PANEL_NR][k][7] == stripes_Y[PANEL_NR][k][4]){
 				stripes_Y[PANEL_NR][k][7] = 0; // counter = 0
 				stripes_Y[PANEL_NR][k][6]++;   // increase offset
@@ -773,20 +784,22 @@ void dataTask(void *pvParameters) {
 				int startY = stripes_Y[PANEL_NR][k][0];
 				if ( startY < 0)
 					startY = 0;
-			    for ( unsigned int i = startY; i < stripes_Y[PANEL_NR][k][0] + stripes_Y[PANEL_NR][k][2] ; i++){
-			        offsetMatrix[PANEL_NR][1][i] = stripes_Y[PANEL_NR][k][6];
-			    }
+//				Serial.println(stripes_Y[PANEL_NR][k][6]);
+//				Serial.println(stripes_Y[PANEL_NR][k][0] + stripes_Y[PANEL_NR][k][2]);
+
+//			    for ( int i = startY; i < stripes_Y[PANEL_NR][k][0] + stripes_Y[PANEL_NR][k][2] ; i++){
+				for ( int i = startY; i < startY + stripes_Y[PANEL_NR][k][2] ; i++){
+					offsetMatrix[PANEL_NR][1][i] = stripes_Y[PANEL_NR][k][6];
+				}
+//			   Serial.println("OK");
 			}
+			if (stripes_Y[PANEL_NR][k][5] > -1 && stripes_Y[PANEL_NR][k][5] == stripes_Y[PANEL_NR][k][6]){ // stop
+				stripes_Y[PANEL_NR][k][4] = -1; // start = -1
+			}
+
 		}
         offsetOK = true;
 
-        for ( unsigned int i = 24; i < 48 ; i++){
-        	offsetMatrix[0][1][i] = index;
-        }
-
-//        for ( unsigned int i = 48; i < DISPLAY_HEIGHT ; i++){
-//        	offsetMatrix[0][1][i][0] = index2;
-//        }
     };
 }
 
@@ -829,23 +842,40 @@ void startStripe(unsigned short stripe_id, unsigned int speed){ // stripes 0...7
 		return;
 	stripes_Y[PANEL_NR][stripe][7] = 0; // roll counter
 	stripes_Y[PANEL_NR][stripe][5] = -1; // stop
+//	Serial.println(stripe);
 	switch (stripe){
 		case 0: //
-			stripes_Y[PANEL_NR][stripe][4] = 1; // start with speed speed
+			stripes_Y[PANEL_NR][stripe][4] = 3; // start with speed speed
 			break;
 		case 1: //
-			stripes_Y[PANEL_NR][stripe][4] = 2; // start with speed speed
+			stripes_Y[PANEL_NR][stripe][4] = 3; // start with speed speed
 			break;
 		case 2: //
 			stripes_Y[PANEL_NR][stripe][4] = 3; // start with speed speed
 			break;
 		case 3:	 //
-			stripes_Y[PANEL_NR][stripe][4] = 4; // start with speed speed
+			stripes_Y[PANEL_NR][stripe][4] = 3; // start with speed speed
 			break;
 	}
-	;
+
 }
-void stopStripe(unsigned int stripe_id,unsigned int number){
-	;
+
+void stopStripe(int stripe_id,int number){
+		short stripe = -1;
+		Serial.println("stopOK");
+		for ( unsigned int i = 0; i < STRIPES; i++){
+			if (stripes_Y[PANEL_NR][i][3] == stripe_id){
+				stripe =  i;
+				break;
+			}
+		}
+		if ( stripe == -1)
+			return;
+		int offset = 34 * number + 16 ;
+		if ( offset > IMAGE_WIDTH)
+			offset -= IMAGE_WIDTH;
+		stripes_Y[PANEL_NR][stripe][5] = offset; // stop
+
 }
+
 
