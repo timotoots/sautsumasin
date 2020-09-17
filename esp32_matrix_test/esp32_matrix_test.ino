@@ -9,86 +9,86 @@
 #define DISPLAY_SCAN_LINES  32 // scan lines are usually half the display height
 #define PANELS 3
 #define EFFECT              1  // 1: Gray gradient (static)  2: Random gray static  3: Random color static  4: Animated Rainbow  5: Animated random gray static 6: custom
-#define IMAGE_WIDTH 340
+#define IMAGE_WIDTH 374
 #define IMAGE_HEIGHT 24
 #define IMAGE_POSY 0
 #define STRIPES 4
 #define OFFSET_BUFFERS 2
 
-#define NUM_STOPS 10 // How many stop positions on a stripe
+#define NUM_STOPS 11 // How many stop positions on a stripe
 #define SERIAL_DEBUG 1
 
-#define PANEL_NR 0 // 0,1,2
+#define PANEL_NR 2 // 0,1,2
 
 // panel 0
 #define PANEL_0_BEGIN_X 0
-#define PANEL_0_END_X 339
+#define PANEL_0_END_X IMAGE_WIDTH-1
 #define PANEL_0_BEGIN_Y 0
 #define PANEL_0_END_Y 63
 
 #define PANEL0_STRIPE0_WIDTH 24
-#define PANEL0_STRIPE0_OFFSET_X 254
+#define PANEL0_STRIPE0_OFFSET_X 292
 #define PANEL0_STRIPE0_OFFSET_Y 0
 
 #define PANEL0_STRIPE1_WIDTH 24
-#define PANEL0_STRIPE1_OFFSET_X 254
+#define PANEL0_STRIPE1_OFFSET_X 292
 #define PANEL0_STRIPE1_OFFSET_Y 24
 
 #define PANEL0_STRIPE2_WIDTH 16
-#define PANEL0_STRIPE2_OFFSET_X 254
+#define PANEL0_STRIPE2_OFFSET_X 292
 #define PANEL0_STRIPE2_OFFSET_Y 48
 
 #define PANEL0_STRIPE3_WIDTH 0
-#define PANEL0_STRIPE3_OFFSET_X 254
+#define PANEL0_STRIPE3_OFFSET_X 292
 #define PANEL0_STRIPE3_OFFSET_Y 0
 
 // panel 1
 #define PANEL_1_BEGIN_X 0
-#define PANEL_1_END_X 339
+#define PANEL_1_END_X IMAGE_WIDTH-1
 #define PANEL_1_BEGIN_Y 64
 #define PANEL_1_END_Y 127
 
 #define PANEL1_STRIPE0_WIDTH 8
-#define PANEL1_STRIPE0_OFFSET_X 254
+#define PANEL1_STRIPE0_OFFSET_X 292
 #define PANEL1_STRIPE0_OFFSET_Y -16
 
 #define PANEL1_STRIPE1_WIDTH 24
-#define PANEL1_STRIPE1_OFFSET_X 254
+#define PANEL1_STRIPE1_OFFSET_X 292
 #define PANEL1_STRIPE1_OFFSET_Y 8
 
 #define PANEL1_STRIPE2_WIDTH 24
-#define PANEL1_STRIPE2_OFFSET_X 254
+#define PANEL1_STRIPE2_OFFSET_X 292
 #define PANEL1_STRIPE2_OFFSET_Y 32
 
 #define PANEL1_STRIPE3_WIDTH 8
-#define PANEL1_STRIPE3_OFFSET_X 254
+#define PANEL1_STRIPE3_OFFSET_X 292
 #define PANEL1_STRIPE3_OFFSET_Y 56
 
 // panel 2
 #define PANEL_2_BEGIN_X 0
-#define PANEL_2_END_X 339
+#define PANEL_2_END_X IMAGE_WIDTH-1
 #define PANEL_2_BEGIN_Y 128
 #define PANEL_2_END_Y 191
 
 #define PANEL2_STRIPE0_WIDTH 16
-#define PANEL2_STRIPE0_OFFSET_X 254
+#define PANEL2_STRIPE0_OFFSET_X 292
 #define PANEL2_STRIPE0_OFFSET_Y -8
 
 #define PANEL2_STRIPE1_WIDTH 24
-#define PANEL2_STRIPE1_OFFSET_X 254
+#define PANEL2_STRIPE1_OFFSET_X 292
 #define PANEL2_STRIPE1_OFFSET_Y 16
 
 #define PANEL2_STRIPE2_WIDTH 24
-#define PANEL2_STRIPE2_OFFSET_X 254
+#define PANEL2_STRIPE2_OFFSET_X 292
 #define PANEL2_STRIPE2_OFFSET_Y 40
 
 #define PANEL2_STRIPE3_WIDTH 0
-#define PANEL2_STRIPE3_OFFSET_X 254
+#define PANEL2_STRIPE3_OFFSET_X 292
 #define PANEL2_STRIPE3_OFFSET_Y 0
 
 // panel 3
 #define PANEL_3_BEGIN_X 0
-#define PANEL_3_END_X 339
+#define PANEL_3_END_X IMAGE_WIDTH-1
 #define PANEL_3_BEGIN_Y 192
 #define PANEL_3_END_Y 255
 
@@ -150,7 +150,9 @@
 #define PIN_G2  18//18
 #define PIN_B2  19//19
 
-#include "riba1.h"
+#include <esp_task_wdt.h>
+//#include "riba1.h"
+#include "riba_uus.h"
 
 const unsigned long MASK_PINS = (1<<PIN_R1)|(1<<PIN_G1)|(1<<PIN_B1)|(1<<PIN_R2)|(1<<PIN_G2)|(1<<PIN_B2);
 const unsigned long MASK_R1 = (1<<PIN_R1);
@@ -178,10 +180,24 @@ unsigned int offsetMatrix[PANELS][OFFSET_BUFFERS][DISPLAY_HEIGHT]; // x offsets
 unsigned int panels_parm[PANELS][2];
 unsigned int stripe_actions[PANELS*4][4]; // start, stop, current offset,roll counter
 bool offsetOK = true;
+volatile bool timertick = false;
 /*
  * methods that are loaded into IRAM with IRAM_ATTR to avoid being loaded on call from flash (ESP-IDF command)
  * these methods need to be defined before they are used (order of calls)
  */
+volatile int interruptCounter;
+int totalInterruptCounter;
+
+hw_timer_t * timer = NULL;
+portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
+
+void IRAM_ATTR onTimer() {
+  portENTER_CRITICAL_ISR(&timerMux);
+//  interruptCounter++;
+  timertick = true;
+  portEXIT_CRITICAL_ISR(&timerMux);
+
+}
 void IRAM_ATTR digitalWriteFast(unsigned char pinNum, boolean value) {
     // GPIO.out_w1ts sets a pin high, GPIO.out_w1tc sets a pin low (ESP-IDF commands)
     if(value) GPIO.out_w1ts = 1 << pinNum;
@@ -420,21 +436,21 @@ void setup() {
     Serial.begin(115200);
 
 	logMemory();
-	screenBuffer[0] = (unsigned char*)ps_malloc(displayBufferSize);
+	screenBuffer[0] = (unsigned char*)ps_malloc(10);
 	logMemory();
-    screenBuffer[1] = (unsigned char*)ps_malloc(displayBufferSize);
+    screenBuffer[1] = (unsigned char*)ps_malloc(10);
     logMemory();
 
 
-    screenBuffer[imageScreenBuffer] = (unsigned char*)ps_malloc(PANELS * displayBufferWidth*DISPLAY_SCAN_LINES*16); // 16 bytes for each pixel
+    screenBuffer[imageScreenBuffer] = (unsigned char*)ps_malloc(displayBufferWidth*DISPLAY_SCAN_LINES*16); // 16 bytes for each pixel
     logMemory();
 
     // fill buffers with 0
-    for (unsigned int x = 0; x < displayBufferSize; x++) {
-        screenBuffer[0][x] = 0;
-        screenBuffer[1][x] = 0;
-    }
-    for (unsigned int x = 0; x < PANELS * displayBufferWidth*DISPLAY_SCAN_LINES*16; x++) {
+//    for (unsigned int x = 0; x < displayBufferSize; x++) {
+//        screenBuffer[0][x] = 0;
+//        screenBuffer[1][x] = 0;
+//    }
+    for (unsigned int x = 0; x < displayBufferWidth*DISPLAY_SCAN_LINES*16; x++) {
         screenBuffer[2][x] = 0;
     }
 
@@ -682,6 +698,11 @@ void setup() {
 
     activeScreenBuffer = imageScreenBuffer;
 
+    timer = timerBegin(0, 80, true);
+    timerAttachInterrupt(timer, &onTimer, true);
+    timerAlarmWrite(timer, 3000, true);
+    timerAlarmEnable(timer);
+
     // initialize the refresh and data "acquisition" tasks to run on separate CPU cores
     // this is an ESP-IDF feature to run tasks (endless loops) on different cores
     // callback, name, stack size, null, priority 3-0 (0 lowest), null, core (0 or 1)
@@ -711,51 +732,39 @@ void refreshTask(void *pvParameters) {
 // Functions from protocol
 
 void setBufferPixel(int x, int y, int r, int g, int b){
+    unsigned char *imageBuffer = screenBuffer[imageScreenBuffer];
+    int posX,posY;
+    return;
 
-  // x: 0 - DISPLAY_WIDTH
-  // y: 0 - DISPLAY_HEIGHT
+    cacheWrite(imageBuffer,posX,posY,r,g,b);
+  // x: 0 - DISPLAY_WIDTH -1
+  // y: 0 - DISPLAY_HEIGHT -1
   // r,g,b: 0 - 255
   
   
   
 }
-/*
-void startStripe(int stripe_id){
-
-  // starts animation
-  // stripe_id: 0 - 7
-
-  
-}
-*/
 void setBrighness(int factor){
 
   // factors: 1 2 3
-  
+  // clear screen
 }
 
-/*
-void stopStripe(int stripe_id , int stop_position){
-
-  // stops stripe at position
-  // stripe_id: 0 - 7
-  // stop_position: 0 - stops_count
-
-  // set position to stop
-
-  
+void hard_restart() {
+	esp_task_wdt_init(1,true);
+	esp_task_wdt_add(NULL);
+	while(true);
 }
-*/
 /////////////////////////////////////////////////////////////////////////////
 
 void dataTask(void *pvParameters) {
     (void) pvParameters;
 
     // start time measurement
-    unsigned long start = micros();
-    unsigned long time;
-    bool first =  false;
-    unsigned int index=0,index1=0,index2=0,index0=0;
+//    unsigned long start = micros();
+//    unsigned long time;
+//    bool first =  false;
+//    unsigned int index=0,index1=0,index2=0,index0=0;
 //    Serial.begin(115200);
 //    while (1){};
     while (1) {        // calculate time delayed by effect generation, set delay to reach fixed 30 fps
@@ -763,10 +772,13 @@ void dataTask(void *pvParameters) {
 //    	vTaskDelay(5 / portTICK_PERIOD_MS);  // 5ms delay to allow other background tasks to do something
 //        time = 28333 - (micros() - start);
 //        if(time < 28333) delayMicroseconds(time);
-        time = 2000 - (micros() - start);
-        if(time < 2000) delayMicroseconds(time);
-        start = micros();
+//        time = 2000 - (micros() - start);
+//        if(time < 2000) delayMicroseconds(time);
+//        start = micros();
 
+    	if ( ! timertick)
+    		continue;
+    	timertick = false;
 //int stripes_Y[PANELS][STRIPES][8]; // beginY , endY, width, id, start, stop, current offset, roll counter
 
         offsetOK = false;
@@ -830,7 +842,7 @@ void sendConfiguration(unsigned int data, unsigned char latches) {
 }
 //unsigned short stripe_actions[PANELS*4][2];
 //int stripes_Y[PANELS][STRIPES][8]; // beginY , endY, width, id, start, stop, current offset, roll counter
-void startStripe(unsigned short stripe_id, unsigned int speed){ // stripes 0...7
+void startStripe(unsigned short stripe_id, unsigned int speed){ // stripes 0...7, speed 1...10
 	short stripe = -1;
 	for ( unsigned int i = 0; i < STRIPES; i++){
 		if (stripes_Y[PANEL_NR][i][3] == stripe_id){
@@ -840,29 +852,34 @@ void startStripe(unsigned short stripe_id, unsigned int speed){ // stripes 0...7
 	}
 	if ( stripe == -1)
 		return;
+	Serial.print("STRIPE_START: ");
+	Serial.println(stripe_id + 1);
 	stripes_Y[PANEL_NR][stripe][7] = 0; // roll counter
 	stripes_Y[PANEL_NR][stripe][5] = -1; // stop
 //	Serial.println(stripe);
+/*
 	switch (stripe){
 		case 0: //
-			stripes_Y[PANEL_NR][stripe][4] = 3; // start with speed speed
+			stripes_Y[PANEL_NR][stripe][4] = 1; // start with speed speed
 			break;
 		case 1: //
-			stripes_Y[PANEL_NR][stripe][4] = 3; // start with speed speed
+			stripes_Y[PANEL_NR][stripe][4] = 1; // start with speed speed
 			break;
 		case 2: //
-			stripes_Y[PANEL_NR][stripe][4] = 3; // start with speed speed
+			stripes_Y[PANEL_NR][stripe][4] = 1; // start with speed speed
 			break;
 		case 3:	 //
-			stripes_Y[PANEL_NR][stripe][4] = 3; // start with speed speed
+			stripes_Y[PANEL_NR][stripe][4] = 11; // start with speed speed
 			break;
 	}
+*/
+	stripes_Y[PANEL_NR][stripe][4] = 11 - speed; // start with speed
 
 }
 
 void stopStripe(int stripe_id,int number){
 		short stripe = -1;
-		Serial.println("stopOK");
+//		Serial.println("stopOK");
 		for ( unsigned int i = 0; i < STRIPES; i++){
 			if (stripes_Y[PANEL_NR][i][3] == stripe_id){
 				stripe =  i;
@@ -871,9 +888,11 @@ void stopStripe(int stripe_id,int number){
 		}
 		if ( stripe == -1)
 			return;
-		int offset = 34 * number + 16 ;
-		if ( offset > IMAGE_WIDTH)
-			offset -= IMAGE_WIDTH;
+		Serial.print("STRIPE_STOP: ");
+		Serial.println(stripe_id + 1);
+		int offset = 292 - 34 * number;
+		if ( offset < 0)
+			offset += IMAGE_WIDTH;
 		stripes_Y[PANEL_NR][stripe][5] = offset; // stop
 
 }

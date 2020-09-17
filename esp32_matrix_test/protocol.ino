@@ -21,10 +21,10 @@ void protocolTask(void *pvParameters) {
 
           /////////////////////
           // 101 - start turning
-          // protocol: device_id 101 stripe_id
-          // example: 10002 101 1
-          // example: 10002 101 2
-          // example: 10002 101 8
+          // protocol: device_id 101 stripe_id speed(1...10)
+          // example: 10002 101 1 2
+          // example: 10002 101 2 4
+          // example: 10002 101 8 3
                
           if (cmd==101){
 
@@ -32,16 +32,23 @@ void protocolTask(void *pvParameters) {
               
               if(b > 0 && b <= 8){
                  
-                 if(SERIAL_DEBUG==1){
+                  int c = Serial.parseInt(); // speed 1...10
 
-                   Serial.print("[PROTOCOL] ");
-                   Serial.print("Starting stripe ");
-                   Serial.println(b);
+                  if(c >= 1 && c <= 10){
+
+                	  if(SERIAL_DEBUG==1){
+
+                		  Serial.print("[PROTOCOL] ");
+                		  Serial.print("Starting stripe ");
+                		  Serial.print(b);
+                          Serial.print(" at speed ");
+                          Serial.println(c);
                    
-                 }
+                	  }
+                	 // PAPS
+                  startStripe(b-1,c);
+                  }
 
-                 // PAPS
-                 startStripe(b-1,2);
               }
               
           /////////////////////
@@ -155,7 +162,7 @@ void protocolTask(void *pvParameters) {
                                   }
 
                                   // PAPS
-                                  // setBufferPixel(x-1,y-1,r-1,g-1,b-1);
+                                  setBufferPixel(x-1,y-1,r-1,g-1,b-1);
                                  
                               } // b
                             
@@ -168,8 +175,16 @@ void protocolTask(void *pvParameters) {
           } // x      
     
           
+        } else if (cmd==105){
+
+            // restart;
+            if(SERIAL_DEBUG==1){
+            	Serial.print("[PROTOCOL] ");
+                Serial.println("Restarting ");
+                }
+            hard_restart();
         } // cmd
-        
+
       } // a
     
      } // while
