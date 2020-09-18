@@ -1,94 +1,56 @@
 
 // 'use strict';
 
-var colors = require('colors');
+const colors = require('colors');
 const http = require('http');
+const fs = require('fs');
+const spawn = require( 'child_process' );
+const { exec } = require("child_process");
+const path = require('path');
+const request = require('request');
 
 console.log('///////////////////////////////////////////////'.blue);
 console.log('SAUSTUMASIN START'.blue);
 console.log('///////////////////////////////////////////////\n'.blue);
 
-const spawn = require( 'child_process' );
 
-// const dir = "/opt/sautsumasin/software/server";
 
-var fs = require('fs');
-
-var request = require('request');
-const { exec } = require("child_process");
-
-var fs = require('fs');
 var secrets = JSON.parse(fs.readFileSync('secrets.json', 'utf8'));
 
-
-const path = require('path');
-const escpos = require('escpos');
-escpos.USB = require('escpos-usb');
-
-
-var ports = [];
-
-
-function sendHearbeat(){
-
-    var url = secrets.logero_url + "?heartbeat=1";
-    console.log("[HEARTBEAT] Sending heartbeat to logero.")
-    try{
-        const request = http.get(url, function(res) {
-            setTimeout(sendHearbeat,60000);
-            // res.on('end', function() {
-            //     setTimeout(sendHearbeat,10000);
-            // });
-        });
-    } catch(e){
-      console.log("Logero problem" + e);
-      setTimeout(sendHearbeat,60000);
-    }
-
+var states = {
+    "handle_trigger":false, 
+    "print_button":false, 
+    "game":"booted", 
+    "inviter":true, 
+    "readyForPrinting":false,
+    "reelStopPlayed":[]
 }
 
-// sendHearbeat();
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // GAME LOGIC
 
-setTimeout(initGame,2000);
-
-var currentPrintDate = "";
-
 var waitingTimer;
-
-var nextPrintout = "";
 
 function initGame(){
 
     console.log("[GAME] Init game".green);
 
-    currentPrintDate = "";
+    getNextPrintout();
 
     states.game = "stopped";
-     // sendToSerial("10005", "501","1 50");
+    states.inviter = true;
+    states.game = "initialised";
+
+    clearReelStopSounds();
+
     changeBacklight("title",100);
     changeBacklight("label",100);
     changeBacklight("print_button",1);
     changeBacklight("spiral","standby");
 
     releaseHandleLock();
-
-    //startGame();
-
-    // for (var i = 1; i <= 8; i++) {
-    //     setTimeout(spinReel,i*100,i)
-    
-    // }
- 
-    //  for (var i = 1; i <= 8; i++) {
-    //     setTimeout(stopReel,i*100+5000,i,i);
-    // }
-
-
-    // setTimeout(playSound,5000,"sautsumasin");
-    // setTimeout(playSound,7000,"tule_minuga_mangima");
 
 }
 
@@ -97,12 +59,22 @@ function initGame(){
 function startGame(){
 
 
-    clearTimeout(waitingTimer);
+
+
 
     if(states.game=="playing"){
-        console.log("[GAME] Already active")
+        console.log("🍒 [GAME] Already active")
         return false;
     }
+
+    console.log("\n\n\n🍒 [GAME] NEW GAME 🍒🍒🍒🍒🍒🍒🍒🍒🍒🍒🍒🍒🍒🍒🍒🍒🍒🍒🍒🍒🍒🍒🍒🍒🍒".red)
+
+    stopSounds();
+
+    clearTimeout(waitingTimer);
+
+    states.inviter = false;
+    states.readyForPrinting = false;
 
     changeBacklight("spiral","rolling");
 
@@ -110,12 +82,11 @@ function startGame(){
 
     getNextPrintout();   
 
-
-
     var timer = 0;
-    var nextDate = nextPrintout.humanDate;
 
-    console.log("[GAME] Start game for date " + nextDate)
+    console.log("[GAME] Start game for date " + states.currentPrintDate)
+
+    clearReelStopSounds();
 
     console.log("[GAME] Spin reels".green)
 
@@ -123,40 +94,44 @@ function startGame(){
         setTimeout(spinReel,i*100,i)
     }
 
+    setTimeout(playSound,10,"reels");
+
     setTimeout(function(){ console.log("[GAME] Stop reels".green) },5000)
 
     timer += 3000;
 
     for (var i = 1; i <= 8; i++) {
-        setTimeout(stopReel,i*1000+timer,i,parseInt(nextDate[i-1]));
+        setTimeout(stopReel,i*1000+timer,i,parseInt(states.currentDisplayDate[i-1]));
     }
 
     timer += 8*1000 + 3000;
 
-
-
-    setTimeout(function(nextDate){ 
+    setTimeout(function(){ 
 
         states.game = "waiting";
         console.log("[GAME] Print or pull handle? ".green)
-        
+      
         playSound("coins");
-        currentPrintFile = nextPrintout.file;
-        currentPrintDateStr = nextPrintout.printDate;
 
         changeBacklight("print_button",100);
-        setTimeout(playSound,10000,"tryki");
+        states.readyForPrinting = true;
 
+        setTimeout(function(){
+            if(states.game!="playing" && states.readyForPrinting==true){
+                playSound("tryki");
+            }
+        },10000)
+        ;
         releaseHandleLock();
+
         waitingTimer = setTimeout(function(){
                 //initGame();
                 changeBacklight("spiral","standby");
-        },10000);
+                states.inviter = true;
+
+        },20000);
     
-     },timer,nextDate);
-
-    setTimeout(playSound,10,"reels");
-
+     },timer);
 
 
 }
@@ -166,6 +141,7 @@ function startGame(){
 
 // Serial
 
+var ports = [];
 
 var SerialPort = require('serialport');
 const Readline = SerialPort.parsers.Readline;
@@ -223,8 +199,13 @@ function globalSerialParser(data, parser_id){
             console.log("[SERIAL] No device id at port: " + parser_id + " to " + id);
         }
 
+    } else if(data.substr(0,12)=="STRIPE_STOP:"){
+
+        //console.log("STRIPE_STOP:" + parseInt(data.substr(12)));
+        playReelStopSound(parseInt(data.substr(12)))    
+
     } else {
-        console.log("[SERIAL " +  ports[parser_id].deviceId + "]: "+data);
+       // console.log("[SERIAL " +  ports[parser_id].deviceId + "]: "+data);
     }
 
 }
@@ -238,7 +219,7 @@ function sendToSerial(device_id, cmd, msg){
 
     msg = device_id + " " + cmd + " "+ msg;
     ports[portMapping[device_id]].port.write(msg + "\n");
-    console.log(msg);
+    //console.log(msg);
 
 }
 
@@ -377,21 +358,17 @@ function spinReel(reel_id){
     for (var i = 1; i <= 3; i++) {
         sendToSerial("1000"+i, "101", reel_id + " " + speed);
     }
-
-
 }
 
 ///
 
 function stopReel(reel_id, slot){
 
-
     var stripeId = parseInt(slot)+1;
 
     for (var i = 1; i <= 3; i++) {
         sendToSerial("1000"+i, "102", reel_id + " " + stripeId);
     }
-
 
 }
 
@@ -401,7 +378,6 @@ function stopReel(reel_id, slot){
 
 
 var pins = {"handle_trigger":23, "print_button":18, "pir":25, "handle_lock":17};
-var states = {"handle_trigger":false, "print_button":false, "game":"stopped"}
 
 var gpio = require('rpi-gpio');
 gpio.setMode(gpio.MODE_BCM);
@@ -420,13 +396,16 @@ gpio.setup(pins.pir, gpio.DIR_IN, gpio.EDGE_BOTH);
 // handle lock
 gpio.setup(pins.handle_lock, gpio.DIR_OUT);
 
+var d = new Date();
+var lastPirTrigger = Date.now();
+
 
 gpio.on('change', function(channel, value) {
 
     if(channel==pins.pir){
 
         if(value==true){
-            console.log("[PIR] Movement detected")
+            playInviter();
         } 
 
     } else if(channel==pins.handle_trigger){
@@ -489,16 +468,30 @@ function lockHandle(){
 
 // Sound
 
+var lastInviterPlayed = Date.now();
+
+
+function playInviter(){
+
+    var d = Date.now();
+
+    if(states.inviter == true &&  d - lastInviterPlayed > 30000){
+
+        playSound("inviter");
+        lastInviterPlayed = d;
+    }  
+
+}
+
 function playSound(file){
 
-    console.log("[SOUND] Play sound: " + file)
+    str = "🔔 [SOUND] Play sound: " + file;
+    console.log(str.yellow);
+
     var cmd = "mpg123 /opt/sautsumasin/software/server/sound/"+ file +".mp3";
 
         const exec = require('child_process').exec;
-        // console.log(activeDmxCmd);
         exec(cmd,{maxBuffer:200*1024*1000},function(error,stdout,stderr){ 
-            // console.log(stdout.blue);
-
         });
 
 }
@@ -506,54 +499,23 @@ function playSound(file){
 
 function stopSounds(){
 
-    console.log("[SOUND] Stop all sounds")
+    console.log("🔔 [SOUND] Stop all sounds")
     shellCmd("killall mpg123");
 
 }
 
+function clearReelStopSounds(){
+    for (var i = 0; i < 8; i++) {
+        states.reelStopPlayed[i] = false;
+    }
+}
+function playReelStopSound(reel_id){
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// Printing
-
-const device  = new escpos.USB(0x067b,0x2305);
-const printer = new escpos.Printer(device);
-
-function printCurrent(){
-
-    if(currentPrintFile!=""){
-
-        var str = "[PRINT] Printing file: " + currentPrintFile;
+    if(states.reelStopPlayed[reel_id-1] == false){
+        states.reelStopPlayed[reel_id-1] = true;
+        playSound("ding");
+        var str = "Stopped reel: " + reel_id;
         console.log(str.green);
-        changeBacklight("print_button",1);
-
-        const tux = path.join(__dirname, "data/printouts/" + currentPrintFile);
-        currentPrintFile = "";
-
-
-
-        escpos.Image.load(tux, function(image){
-
-          device.open(function(){
-
-            printer.align('ct')
-                  
-                    .text("SAUTSUMASIN")
-                    .text(currentPrintDateStr)
-                   .image(image, 's8')
-                   .then(() => { 
-                    printer.cut().close(); 
-                      
-                   });
-
-            // OR non-async .raster(image, "mode") : printer.text("text").raster(image).cut().close();
-            currentPrintDateStr = "";
-          });
-
-        });
-
-
 
     }
 
@@ -561,17 +523,57 @@ function printCurrent(){
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////
 
-// Creating images
+// Content
+
+// var printOuts = [];
+
+var urlExists = require('url-exists');
+
+var pubDates = {};
+var pubTitles = {};
 
 
-var printOuts = [];
 
 updatePrintouts();
+
+///////////////////////
+
+var dir = "data/publications_lists"
+
+fs.readdir(dir, (err, files) => {
+    
+    if (err) {
+        throw err;
+    }
+
+    files.forEach(file => {
+
+        var id = file.replace(".json","");
+        var rawdata = fs.readFileSync(dir + "/"+file);
+        var json = JSON.parse(rawdata);
+        var title = json.title;
+        title = title.split(":",1);
+        title = title[0].split(";",1);
+        title = trim(title[0]);
+
+        pubTitles[id] = title;
+    })
+    console.log("[CONTENT] Publication titles loaded".green)
+    console.log(pubTitles);
+});
+
+///////////////////////
+
+
+var pubDatesTemp = {};
 
 function updatePrintouts(){
 
     var dir = "data/printouts/"
+
+    pubDatesTemp = {};
 
     fs.readdir(dir, (err, files) => {
         
@@ -581,89 +583,211 @@ function updatePrintouts(){
 
         files.forEach(file => {
 
-            date = file.replace(".png","");
-            date = date.split("_");
-            date = date[0];
+            file = file.replace(".png","");
+            str = file.split("_");
+            date = str[0];
+            title = str[1];
 
             if(date.length==8){
-                 var o = {};
-                 o.date = date;
-                 o.file = file;
-                 o.humanDate = date[6] + date[7] + date[4] + date[5] + date[0] + date[1] + date[2] + date[3];
-                 o.printDate =  date[6] + date[7] + "." +date[4] + date[5] + "."+date[0] + date[1] + date[2] + date[3];
-                 printOuts.push(o);
-                 console.log(printOuts);
+
+                 // var o = {};
+                 // o.date = date;
+                 // o.file = file;
+                 // o.title = title;
+                 // o.humanDate = date[6] + date[7] + date[4] + date[5] + date[0] + date[1] + date[2] + date[3];
+                 // o.printDate =  date[6] + date[7] + "." +date[4] + date[5] + "."+date[0] + date[1] + date[2] + date[3];
+                 // printOuts.push(o);
+
+                 var displayDate =  date[6] + date[7] + date[4] + date[5] + date[0] + date[1] + date[2] + date[3];
+
+                 if(!pubDatesTemp[displayDate]){
+                    pubDatesTemp[displayDate] = [];
+                 }
+
+                 pubDatesTemp[displayDate].push(file);
+                
+
 
             }
            
                   
         });
 
-        if(nextPrintout==""){
-            console.log("Printout table initalized! Now can play game!");
-            getNextPrintout();
+        pubDates = pubDatesTemp;
+
+        console.log("[CONTENT] Publication printouts updated.".green);
+        console.log(pubDates);
+
+
+        if(states.game=="booted"){  
+            setTimeout(initGame,5000);
         }
+
+
 
     });
 
 }
+
+///////////////////////
+
+
+
+
+function getNextPrintout(){
+
+    console.log("[CONTENT] Selecting next game content:".green);
+
+    // Select random date
+
+    var dateFiles = [];
+    var randomDate = "";
+
+    var count = 0;
+    for (var d in pubDates){
+        if (Math.random() < 1/++count){
+            randomDate = d;
+        }
+    }
+
+    
+
+    var randomPrintout = "";
+    var datePublicationList = {};
+    var count = 0;
+
+    for (var file in pubDates[randomDate]){
+
+        var str = pubDates[randomDate][file].split("_");
+        var title = str[1];
+
+        // Add to list of possible publications for this date
+        if(!datePublicationList[title]){
+            datePublicationList[title] = pubTitles[title];
+        }
+
+        // Select random printout on a date      
+        if (Math.random() < 1/++count){
+            randomPrintout = pubDates[randomDate][file];
+        }
+
+    }
+
+    
+    var str = randomPrintout.split("_");
+
+
+
+
+    states.currentDigarId =  str[1] + str[0];
+    states.currentDigarLink = "https://dea.digar.ee/cgi-bin/dea?a=is&type=staticpdf&oid=" + str[1] +str[0];
+
+    urlExists(states.currentDigarLink, function(err, exists) {
+        if(exists==false){
+            console.log("[CONTENT] Changing Digar link PDF to web")
+            states.currentDigarLink  = "https://dea.digar.ee/cgi-bin/dea?a=d&d=" + states.currentDigarId;
+        } 
+    });
+
+    states.currentPublicationTitle = pubTitles[str[1]];
+    states.currentDisplayDate = randomDate;
+    states.currentPrintDate = randomDate[0] + randomDate[1] + "." + randomDate[2] + randomDate[3] + "." + randomDate[4] + randomDate[5] + randomDate[6] + randomDate[7];
+    states.currentPublicationList = datePublicationList;
+    states.currentPrintFile = randomPrintout + ".png";
+   
+    console.log(states);
+
+    //random_publication_date = randomDate;
+    //var random_publication = randomIntInc(0,pubDates[random_publication_date].length-1);
+    //var random_publication_id = pubDates[random_publication_date][random_publication]    + random_publication_date;
+    //nextPrintout = printOuts[randomIntInc(0,printOuts.length-1)];
+
+
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Printing
+
+const escpos = require('escpos');
+escpos.USB = require('escpos-usb');
+
+const device  = new escpos.USB(0x067b,0x2305);
+const printer = new escpos.Printer(device);
+
+function printCurrent(){
+
+    if(states.readyForPrinting==true && states.currentPrintFile){
+
+        var str = "🖨️  [PRINT] Printing file: " + states.currentPrintFile;
+        console.log(str.green);
+        changeBacklight("print_button",1);
+        states.readyForPrinting = false;
+
+        const tux = path.join(__dirname, "data/printouts/" + states.currentPrintFile);
+
+        escpos.Image.load(tux, function(image){
+
+            device.open(function(){
+
+                printer.align('ct')
+                  .encode('UTF-8') // set encode globally
+                   .text("SAUTSUMASIN")
+                   .text(states.currentPrintDate)
+                   .text(states.currentPublicationTitle)
+                   .image(image, 's8')
+                   .then(() => { 
+                     printer. text("VAATA LEHTE:").qrimage(states.currentDigarLink, {type: 'png', mode: 'dhdw' ,"size":3}, function(err){
+                        this.text("\n")
+                        this.cut();
+                        this.close();
+                      });
+
+                        //printer.cut().close();  
+                   });
+            });
+        });
+    }
+
+} // function printCurrent
+
+/////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Logging
+
+function sendHearbeat(){
+
+    var url = secrets.logero_url + "?heartbeat=1";
+    console.log("[HEARTBEAT] Sending heartbeat to logero.")
+    try{
+        const request = http.get(url, function(res) {
+            setTimeout(sendHearbeat,60000);
+            // res.on('end', function() {
+            //     setTimeout(sendHearbeat,10000);
+            // });
+        });
+    } catch(e){
+      console.log("Logero problem" + e);
+      setTimeout(sendHearbeat,60000);
+    }
+
+}
+
+// sendHearbeat();
+
+/////////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Useful functions
 
 
 function randomIntInc(low, high) {
   return Math.floor(Math.random() * (high - low + 1) + low)
 }
 
-
-function getNextPrintout(){
-
-    nextPrintout = printOuts[randomIntInc(0,printOuts.length-1)];
-    console.log("Setting next date to " + nextPrintout.date + " and print file to " + nextPrintout.file);
-
-
-}
-
-/*
-
-const { registerFont, createCanvas } = require('canvas')
-registerFont('OCRAStd.otf', { family: 'OCR' })
-
-
-function createPrintHeader(date,publication){
-
-
-    const width = 300
-    const height = 200
-
-    const canvas = createCanvas(width, height)
-    const context = canvas.getContext('2d')
-
-    context.fillStyle = '#ccc'
-    context.fillRect(0, 0, width, height)
-
-    // var text = date[0]+ date[1] + "." + date[2]+ date[3] + "." + date[4]+ date[5] + date[6]+ date[7]+ " "  + publication;
-
-    // text += "\nSAUTSUMASIN";
-    // var text = "AAA";
-
-const text = 'Hello, World!'
-
-// context.font = 'bold 70pt "OCR"'
-context.textAlign = 'center'
-context.fillStyle = '#fff'
-context.fillText(text, 0, 0,300)
-
-    console.log("[IMAGE] Create headr image for " + text);
-
-    const buffer = canvas.toBuffer('image/png')
-    fs.writeFileSync('./test3.png', buffer)
-
-}
-
-createPrintHeader("15091982","Postimees");
-
-*/
-/////////////////////////////////////////////////////////////////////////////////////////////////
-// Useful functions
 
 function trim(str){
 

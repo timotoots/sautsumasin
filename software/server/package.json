@@ -9,11 +9,18 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "canvas": "^2.6.1",
     "colors": "^1.4.0",
+    "escpos": "^3.0.0-alpha.6",
+    "escpos-usb": "^3.0.0-alpha.4",
+    "express": "^4.17.1",
+    "imagesize": "^1.0.0",
     "moment": "^2.27.0",
     "oai-pmh": "^2.0.3",
     "rpi-gpio": "^2.1.7",
     "serialport": "^9.0.1",
+    "terminal-image": "^1.2.1",
+    "url-exists": "^1.0.3",
     "xml-js": "^1.6.11"
   }
 }
