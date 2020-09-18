@@ -105,7 +105,7 @@ https://www.sigmdel.ca/michel/ha/wireguard/wireguard_03_en.html
 
 ## Add to rc.local
 ```
-su pi -c  '/opt/sautsumasin/startup.sh  &'
+/usr/bin/screen -dmS app /opt/sautsumasin/software/server/start.sh &
 ```
 
 ## Add to crontab nightly reboot
