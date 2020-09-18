@@ -128,7 +128,7 @@ FASTRUN void  sendClock() {
 
 
 FASTRUN void digitalWriteSpeed(int pin, bool val, int times){
-
+  GPIO6_DR_SET = 0;
   for(int i = 0;i<times;i++){
     digitalWriteFast(pin, val);
  
@@ -183,7 +183,7 @@ FASTRUN void  sendScanLine(unsigned char line) {
     digitalWrite(PIN_B, 0);
 
 }
-FASTRUN void  LedWallRefresh() {
+FASTRUN  void  LedWallRefresh() {
     unsigned char *activeBuffer = screenBuffer[activeScreenBuffer]; // save a reference to the active buffer to avoid sending data from a different cycle in between
     unsigned long pos,pos1,offset;
     long bufferPos,bufferPos1,bufferPos_t,bufferPos1_t;

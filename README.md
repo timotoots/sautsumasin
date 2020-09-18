@@ -22,15 +22,29 @@ Just for self documentation.
 sudo apt install git minicom
 sudo raspi-config
 ```
+## Set static DNS
+
+```
+sudo nano /etc/dhcpcd.conf
+```
+set line
+static domain_name_servers=1.1.1.1 8.8.8.8
+
 
 ## Install new node.js
 ```
 sudo bash  
-curl -sL https://deb.nodesource.com/setup_11.x | bash -  
+curl -sL https://deb.nodesource.com/setup_12.x | bash -  
 sudo apt-get install -y nodejs  
 node -v  
+
 ```
 
+## Install node canvas requirements
+https://github.com/Automattic/node-canvas/wiki/Installation%3A-Ubuntu-and-other-Debian-based-systems
+```
+sudo apt install build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev 
+```
 
 ## Clone this repository
 ```
@@ -83,6 +97,11 @@ speaker-test -c2 -twav -l7 -D plughw:0,0
 cd /opt/sautsumasin/server && node server.js
 ```
 
+## Install Wireguard from testing repo
+https://www.sigmdel.ca/michel/ha/wireguard/wireguard_03_en.html
+```
+...
+```
 
 ## Add to rc.local
 ```
@@ -93,13 +112,16 @@ su pi -c  '/opt/sautsumasin/startup.sh  &'
 ```
 sudo crontab -e
 0 4   *   *   *    /sbin/shutdown -r +5
+
+
+
 ```
 # Credits
 
 ## Icons
 receipt by Creaticca Creative Agency from the Noun Project  
 Newspaper by Gonzalo Bravo from the Noun Project  
-
+joker face by Phạm Thanh Lộc from the Noun Project
 
 
 # Data

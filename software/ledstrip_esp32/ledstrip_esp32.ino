@@ -4,6 +4,8 @@
 // For 12V LEDs
 NCP5623 rgb;
 
+#define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
+#define SERIAL_DEBUG 1
 
 FASTLED_USING_NAMESPACE
 
@@ -27,15 +29,17 @@ FASTLED_USING_NAMESPACE
 #define NUM_LEDS    60
 CRGB leds[NUM_LEDS];
 
-#define BRIGHTNESS          96
+#define BRIGHTNESS          255
 #define FRAMES_PER_SECOND  120
 
-int title_brighness = 255;
-int title_brighness_last = 0;
+int title_brightness = 50;
+
+int label_brightness = 50;
+
+int button_brightness = 40;
 
 void setup() {
 
-  Serial.begin(115200);
   delay(3000); // 3 second delay for recovery
 
   rgb.begin();
@@ -47,6 +51,11 @@ void setup() {
 
   // set master brightness control
   FastLED.setBrightness(BRIGHTNESS);
+ 
+  rgb.setColor(title_brightness,label_brightness,button_brightness);
+ 
+  xTaskCreatePinnedToCore(protocolTask, "protocolTask", 9048, NULL, 1, NULL, 1);
+
 }
 
 
@@ -57,12 +66,8 @@ SimplePatternList gPatterns = { rainbow, rainbowWithGlitter, confetti, sinelon, 
 uint8_t gCurrentPatternNumber = 0; // Index number of which pattern is current
 uint8_t gHue = 0; // rotating "base color" used by many of the patterns
 
-#define ARRAY_SIZE(A) (sizeof(A) / sizeof((A)[0]))
 
-void loop_serial(){
 
-  
-}
 
 void loop()
 {
@@ -74,43 +79,7 @@ void loop()
   // insert a delay to keep the framerate modest
   FastLED.delay(1000/FRAMES_PER_SECOND); 
 
-  // main_title
-  if(title_brighness_last != title_brighness){
-      rgb.setColor(title_brighness,0,0);
-      title_brighness_last = title_brighness;
-  }
 
-
-  // send to serial 1 1 or 1 2 or 1 3 or 1 4
-  while (Serial.available() > 0) {
-     
-     
-     int target = Serial.parseInt();
-
-    // message ment for this controller
-    if(target==1){
-      
-      int state = Serial.parseInt();
-      
-      if(state <= ARRAY_SIZE( gPatterns) && state!=0){
-            gCurrentPatternNumber = state-1;
-            Serial.print("Changing to state:");
-            Serial.println(state);
-  
-      }
-
-      if (state==1){
-        title_brighness = 255;
-      }
-
-      if (state==2){
-        title_brighness = 0;
-      }
-
-      
-    }
-    
-  }
 
   // do some periodic updates
   EVERY_N_MILLISECONDS( 20 ) { gHue++; } // slowly cycle the "base color" through the rainbow
