@@ -1,3 +1,6 @@
+
+// Create random article image
+
 const fs = require('fs')
 const terminalImage = require('terminal-image');
 
@@ -10,18 +13,9 @@ const { createCanvas, loadImage, Image } = require('canvas')
 const canvas = createCanvas(255, 255)
 const ctx = canvas.getContext('2d')
  
-// Write "Awesome!"
-ctx.font = '30px Impact'
-ctx.fillText('15.09.1982 Postimees\nSÄUTSUMASIN', 50, 100,255)
+
  
-// Draw line under text
-var text = ctx.measureText('15.09.1982 Postimees\nSÄUTSUMASIN')
-ctx.strokeStyle = 'rgba(0,0,0,0.5)'
-ctx.beginPath()
-ctx.lineTo(50, 102)
-ctx.lineTo(50 + text.width, 102)
-ctx.stroke()
- 
+
 // // Draw cat with lime helmet
 // loadImage('postimees255.jpg').then((image) => {
 //   ctx.drawImage(image, 50, 0, 70, 70)
@@ -36,14 +30,21 @@ ctx.stroke()
 
 // Possible dates
 
+var imageGlobals = {};
 
+imageGlobals.count = 0;
+imageGlobals.sectionsCount = 0;
+
+imageGlobals.totalHeight = 0;
 
 var dir = "data/publications_lists";
 
 var pubDates = {};
 var pubTitles = {};
 
+
 fs.readdir(dir, (err, files) => {
+
     if (err) {
         throw err;
     }
@@ -98,6 +99,10 @@ function getRandomPublication(){
 
 	console.log("Try random date: " + random_publication_date + " " + random_publication_id );
 
+	imageGlobals.file = "data/printouts/" +  random_publication_date + "_"+ pubDates[random_publication_date][random_publication]	;
+
+	imageGlobals.date = pubDates[random_publication_date][random_publication];
+
 	var url = "https://dea.digar.ee/cgi-bin/dea?a=d&d="+ random_publication_id + "&st=1&f=XML";
 	const request = https.get(url, function(res) {
 
@@ -141,6 +146,7 @@ function getRandomPublication(){
 					    	 out.allSections.push(o);
 					    	//console.log(sections.LogicalSection[key].LogicalSectionMetadata);
 					    }
+					    imageGlobals.allSections = out.allSections;
 					    // console.log(out);
 					    
 
@@ -161,11 +167,13 @@ function getRandomPublication(){
 					    	out.allPages.push(o);
 					    	
 					    }
+					    imageGlobals.pages = out.allPages;
 
 					}
 
-					console.log(out);
-					 generateImage(out);
+					console.log(imageGlobals);
+
+					addNextImage();
 
 
 
@@ -195,14 +203,11 @@ function getRandomPublication(){
 ////////////////////
 
 setTimeout(function(){
-	for (var i = 0; i < 3; i++) {
 		getRandomPublication();
-	}
-},5000)
+},3000)
 
 ////////////////////
 
-var imageGlobals = {};
 
 
 function imageFailed(){
@@ -211,13 +216,18 @@ function imageFailed(){
 
 function processImage(){
 	console.log(imageGlobals);
+	console.log("Writing to image: " +imageGlobals.file);
 
 	var img = new Image;
 	img.src = imageGlobals.base64;
-	ctx.drawImage(img, 0, 40);
+	ctx.drawImage(img, 0, 70);
+
+	imageGlobals.sectionsCount++;
 
 	const buffer = canvas.toBuffer('image/png')
-	fs.writeFileSync('./toprinter9.png', buffer);
+	fs.writeFileSync(imageGlobals.file + ".png", buffer);
+
+	// printTest(imageGlobals.file + ".png");
 
 
 (async () => {
@@ -228,12 +238,66 @@ function processImage(){
 }
 
 
+function addNextImage(){
+
+	if(imageGlobals.count==0){
+		// add text to image
+		console.log("Add text to canvas");
+		// Draw line under text
+		var text = ctx.measureText('SÄUTSUMASIN')
+
+		// Write "Awesome!"
+		ctx.font = '15px Impact'
+		//ctx.fillText('SÄUTSUMASIN', 0, 10,255)
+
+		// ctx.strokeStyle = 'rgba(0,0,0,0.5)'
+		// ctx.beginPath()
+		// ctx.lineTo(50, 102)
+		// ctx.lineTo(50 + text.width, 102)
+		// ctx.stroke()
+ 
+
+		imageGlobals.count++;
+		addNextImage();
+
+	} else {
+
+		if(imageGlobals.totalHeight < 500){
+
+			if(imageGlobals.allSections){
+
+				// imageGlobals.sectionsCount = imageGlobals.allSections.length-2;
+
+				imageGlobals.sectionsCount = 3;
+
+				var s = imageGlobals.allSections[imageGlobals.sectionsCount];
+				imageGlobals.url = "https://dea.digar.ee/cgi-bin/dea?a=is&oid="+ s.id +"&type=blockimage&area=1&width=255"
+				imageGlobals.sectionsCount++;
+				addDigarImage();
+
+			} else if(imageGlobals.pages){
+				var p = imageGlobals.pages[0];
+
+				imageGlobals.url = "https://dea.digar.ee/cgi-bin/dea?a=is&oid="+ p.id +"&type=blockimage&area=1&width=255"
+				addDigarImage();
+			}
+		} else {
+			console.log("Canvas full");
+		}
+
+		
+
+	}
+
+	
 
 
 
-function getDigarImage(id){
+}
 
-	imageGlobals.url = "https://dea.digar.ee/cgi-bin/dea?a=is&oid=" + id + "&type=blockimage&area=4&width=255";
+
+function addDigarImage(){
+
 
 	var https = require('https');
 	var imagesize = require('imagesize');
@@ -278,7 +342,39 @@ function getDigarImage(id){
 
 } // getImage
 
-getDigarImage("postimeesew18870808.1.4");
+// getDigarImage("postimeesew18870808.1.4");
 
 
+//////////////////////
 
+function printTest(file){
+
+
+	const path = require('path');
+	const escpos = require('escpos');
+	escpos.USB = require('escpos-usb');
+
+
+	const device  = new escpos.USB(0x067b,0x2305);
+	const printer = new escpos.Printer(device);
+
+	const tux = path.join(file);
+	escpos.Image.load(tux, function(image){
+
+	  device.open(function(){
+
+	    printer.align('ct')
+	           .text('SAUTSUMASIN\n')
+	           .text(imageGlobals.date + '\n')
+	           .image(image, 's8')
+	           .then(() => { 
+	           	printer.cut().close(); 
+	              
+	           });
+
+	    // OR non-async .raster(image, "mode") : printer.text("text").raster(image).cut().close();
+
+	  });
+
+	});
+}
